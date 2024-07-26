@@ -1,8 +1,9 @@
-FROM balenalib/raspberrypi3:stretch
+FROM balenalib/raspberry-pi2:bookworm
+#FROM balenalib/raspberrypi3-debian-python:3.7
 # The balena base image for building apps on Raspberry Pi 3. 
 # Raspbian Stretch required for piwheels support. https://downloads.raspberrypi.org/raspbian/images/raspbian-2019-04-09/
 
-RUN echo "BUILD MODULE: SenseHatDisplay"
+RUN echo "BUILD MODULE: feedback-manager"
 
 RUN [ "cross-build-start" ]
 
@@ -14,13 +15,13 @@ RUN install_packages \
 
 # Install Python packages
 COPY /build/arm32v7-requirements.txt ./
-RUN pip3 install --upgrade pip 
-RUN pip3 install --upgrade setuptools
-RUN pip3 install --index-url=https://www.piwheels.org/simple -r arm32v7-requirements.txt
+#RUN pip3 install --upgrade pip 
+#RUN pip3 install --upgrade setuptools
+RUN pip3 install --break-system-packages --index-url=https://www.piwheels.org/simple -r arm32v7-requirements.txt
 
 # Needed by iothub_client
 RUN install_packages \
-    libboost-python1.62.0 \
+    libboost-python1.74.0 \
     curl \
     libcurl4-openssl-dev
 

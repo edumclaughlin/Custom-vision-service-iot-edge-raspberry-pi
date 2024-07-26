@@ -1,0 +1,4 @@
+azure-iot-device
+azure-mgmt-iothub
+numpy
+#rtimulib

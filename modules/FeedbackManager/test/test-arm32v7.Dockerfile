@@ -1,7 +1,7 @@
 FROM balenalib/raspberrypi3
 # The balena base image for building apps on Raspberry Pi 3.
 
-RUN echo "BUILD MODULE: SenseHatDisplay"
+RUN echo "BUILD MODULE: FeedbackManager"
 
 RUN [ "cross-build-start" ]
 

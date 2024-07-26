@@ -66,7 +66,7 @@
               }
             }
           },
-          "sensehat-display": {
+          "feedback-manager": {
             "version": "1.0",
             "type": "docker",
             "status": "running",
@@ -75,7 +75,7 @@
               "THRESHOLD": {"value": "0.6"}
             },
             "settings": {
-              "image": "${MODULES.SenseHatDisplay.arm32v7}",
+              "image": "${MODULES.FeedbackManager.arm32v7}",
               "createOptions": {
                 "HostConfig":{
                   "Binds":["/dev/i2c1:/dev/i2c1"],
@@ -101,7 +101,7 @@
       "properties.desired": {
         "schemaVersion": "1.0",
         "routes": {
-          "CameraCaptureToSenseHatDisplay": "FROM /messages/modules/camera-capture/outputs/output1 INTO BrokeredEndpoint(\"/modules/sensehat-display/inputs/input1\")",
+          "CameraCaptureToSenseHatDisplay": "FROM /messages/modules/camera-capture/outputs/output1 INTO BrokeredEndpoint(\"/modules/feedback-manager/inputs/input1\")",
           "CameraCaptureToIoTHub": "FROM /messages/modules/camera-capture/outputs/output1 INTO $upstream",
           "CameraCaptureGAToIoTHub": "FROM /messages/modules/CameraCaptureGA/outputs/* INTO $upstream"
         },
