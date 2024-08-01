@@ -6,6 +6,7 @@ import os
 import random
 import sys
 import time
+from dotenv import load_dotenv
 
 #import iothub_client
 # pylint: disable=E0611
@@ -59,12 +60,16 @@ def main(
         videoPath,
         imageProcessingEndpoint="",
         imageProcessingParams="",
-        showVideo=False,
+        cloudProcessingEndpoint="",
+        cloudProcessingParams="",
+        showVideo=True,
         verbose=False,
         loopVideo=True,
         convertToGray=False,
         resizeWidth=0,
         resizeHeight=0,
+        cloudResizeWidth=0,
+        cloudResizeHeight=0,
         annotate=False
 ):
     '''
@@ -73,12 +78,16 @@ def main(
     :param int videoPath: camera device path such as /dev/video0 or a test video file such as /TestAssets/myvideo.avi. Mandatory.
     :param str imageProcessingEndpoint: service endpoint to send the frames to for processing. Example: "http://face-detect-service:8080". Leave empty when no external processing is needed (Default). Optional.
     :param str imageProcessingParams: query parameters to send to the processing service. Example: "'returnLabels': 'true'". Empty by default. Optional.
+    :param str cloudProcessingEndpoint: service endpoint to send the frames to for processing in cloud. Example: "http://face-detect-service:8080". Leave empty when no external processing is needed (Default). Optional.
+    :param str cloudProcessingParams: query parameters to send to the processing in cloud. Example: "'returnLabels': 'true'". Empty by default. Optional.
     :param bool showVideo: show the video in a windows. False by default. Optional.
     :param bool verbose: show detailed logs and perf timers. False by default. Optional.
     :param bool loopVideo: when reading from a video file, it will loop this video. True by default. Optional.
     :param bool convertToGray: convert to gray before sending to external service for processing. False by default. Optional.
     :param int resizeWidth: resize frame width before sending to external service for processing. Does not resize by default (0). Optional.
     :param int resizeHeight: resize frame width before sending to external service for processing. Does not resize by default (0). Optional.ion(
+    :param int cloudResizeWidth: resize frame width before sending to cloud service for processing. Does not resize by default (0). Optional.
+    :param int cloudResizeHeight: resize frame width before sending to cloud service for processing. Does not resize by default (0). Optional.ion(
     :param bool annotate: when showing the video in a window, it will annotate the frames with rectangles given by the image processing service. False by default. Optional. Rectangles should be passed in a json blob with a key containing the string rectangle, and a top left corner + bottom right corner or top left corner with width and height.
     '''
     try:
@@ -91,7 +100,11 @@ def main(
         except Exception as iothub_error:
             print("Unexpected error %s from IoTHub" % iothub_error)
             return
-        with CameraCapture(videoPath, imageProcessingEndpoint, imageProcessingParams, showVideo, verbose, loopVideo, convertToGray, resizeWidth, resizeHeight, annotate, send_to_Hub_callback) as cameraCapture:
+        with CameraCapture(videoPath, imageProcessingEndpoint, imageProcessingParams, 
+                           cloudProcessingEndpoint, cloudProcessingParams,
+                           showVideo, verbose, loopVideo, convertToGray, 
+                           resizeWidth, resizeHeight, cloudResizeWidth, cloudResizeHeight,
+                           annotate, send_to_Hub_callback) as cameraCapture:
             cameraCapture.start()
     except KeyboardInterrupt:
         print("Camera capture module stopped")
@@ -107,10 +120,14 @@ def __convertStringToBool(env):
 
 
 if __name__ == '__main__':
+    load_dotenv()
+
     try:
         VIDEO_PATH = os.environ['VIDEO_PATH']
         IMAGE_PROCESSING_ENDPOINT = os.getenv('IMAGE_PROCESSING_ENDPOINT', "")
         IMAGE_PROCESSING_PARAMS = os.getenv('IMAGE_PROCESSING_PARAMS', "")
+        CLOUD_PROCESSING_ENDPOINT = os.getenv('CLOUD_PROCESSING_ENDPOINT', "")
+        CLOUD_PROCESSING_PARAMS = os.getenv('CLOUD_PROCESSING_PARAMS', "")
         SHOW_VIDEO = __convertStringToBool(os.getenv('SHOW_VIDEO', 'False'))
         VERBOSE = __convertStringToBool(os.getenv('VERBOSE', 'False'))
         LOOP_VIDEO = __convertStringToBool(os.getenv('LOOP_VIDEO', 'True'))
@@ -118,11 +135,18 @@ if __name__ == '__main__':
             os.getenv('CONVERT_TO_GRAY', 'False'))
         RESIZE_WIDTH = int(os.getenv('RESIZE_WIDTH', 0))
         RESIZE_HEIGHT = int(os.getenv('RESIZE_HEIGHT', 0))
+        CLOUD_RESIZE_WIDTH = int(os.getenv('CLOUD_RESIZE_WIDTH', 0))
+        CLOUD_RESIZE_HEIGHT = int(os.getenv('CLOUD_RESIZE_HEIGHT', 0))
         ANNOTATE = __convertStringToBool(os.getenv('ANNOTATE', 'False'))
+
+        print(f"IMAGE_PROCESSING_ENDPOINT: {IMAGE_PROCESSING_ENDPOINT}")
+        print(f"IMAGE_PROCESSING_PARAMS: {IMAGE_PROCESSING_PARAMS}")
+        print(f"CLOUD_PROCESSING_ENDPOINT: {CLOUD_PROCESSING_ENDPOINT}")
+        print(f"CLOUD_PROCESSING_PARAMS: {CLOUD_PROCESSING_PARAMS}")
 
     except ValueError as error:
         print(error)
         sys.exit(1)
 
-    main(VIDEO_PATH, IMAGE_PROCESSING_ENDPOINT, IMAGE_PROCESSING_PARAMS, SHOW_VIDEO,
-         VERBOSE, LOOP_VIDEO, CONVERT_TO_GRAY, RESIZE_WIDTH, RESIZE_HEIGHT, ANNOTATE)
+    main(VIDEO_PATH, IMAGE_PROCESSING_ENDPOINT, IMAGE_PROCESSING_PARAMS, CLOUD_PROCESSING_ENDPOINT, CLOUD_PROCESSING_PARAMS, SHOW_VIDEO,
+         VERBOSE, LOOP_VIDEO, CONVERT_TO_GRAY, RESIZE_WIDTH, RESIZE_HEIGHT, CLOUD_RESIZE_WIDTH, CLOUD_RESIZE_HEIGHT, ANNOTATE)

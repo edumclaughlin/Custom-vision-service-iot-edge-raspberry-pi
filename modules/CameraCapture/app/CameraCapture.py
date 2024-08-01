@@ -16,6 +16,7 @@ import numpy
 import requests
 import json
 import time
+import base64
 
 import VideoStream
 from VideoStream import VideoStream
@@ -38,12 +39,16 @@ class CameraCapture(object):
             videoPath,
             imageProcessingEndpoint = "",
             imageProcessingParams = "", 
+            cloudProcessingEndpoint = "",
+            cloudProcessingParams = "", 
             showVideo = False, 
             verbose = False,
             loopVideo = True,
             convertToGray = False,
             resizeWidth = 0,
             resizeHeight = 0,
+            cloudResizeWidth = 0,
+            cloudResizeHeight = 0,
             annotate = False,
             sendToHubCallback = None):
         self.videoPath = videoPath
@@ -58,12 +63,19 @@ class CameraCapture(object):
             self.imageProcessingParams = "" 
         else:
             self.imageProcessingParams = json.loads(imageProcessingParams)
+        self.cloudProcessingEndpoint = cloudProcessingEndpoint
+        if cloudProcessingParams == "":
+            self.cloudProcessingParams = "" 
+        else:
+            self.cloudProcessingParams = json.loads(cloudProcessingParams)
         self.showVideo = showVideo
         self.verbose = verbose
         self.loopVideo = loopVideo
         self.convertToGray = convertToGray
         self.resizeWidth = resizeWidth
         self.resizeHeight = resizeHeight
+        self.cloudResizeWidth = cloudResizeWidth
+        self.cloudResizeHeight = cloudResizeHeight
         self.annotate = (self.imageProcessingEndpoint != "") and self.showVideo & annotate
         self.nbOfPreprocessingSteps = 0
         self.autoRotate = False
@@ -79,11 +91,15 @@ class CameraCapture(object):
             print("   - Video path: " + self.videoPath)
             print("   - Image processing endpoint: " + self.imageProcessingEndpoint)
             print("   - Image processing params: " + json.dumps(self.imageProcessingParams))
+            print("   - Cloud processing endpoint: " + self.cloudProcessingEndpoint)
+            print("   - Cloud processing params: " + json.dumps(self.cloudProcessingParams))
             print("   - Show video: " + str(self.showVideo))
             print("   - Loop video: " + str(self.loopVideo))
             print("   - Convert to gray: " + str(self.convertToGray))
             print("   - Resize width: " + str(self.resizeWidth))
             print("   - Resize height: " + str(self.resizeHeight))
+            print("   - Cloud Resize width: " + str(self.cloudResizeWidth))
+            print("   - Cloud Resize height: " + str(self.cloudResizeHeight))
             print("   - Annotate: " + str(self.annotate))
             print("   - Send processing results to hub: " + str(self.sendToHubCallback is not None))
             print()
@@ -106,7 +122,7 @@ class CameraCapture(object):
         try:
             response = requests.post(self.imageProcessingEndpoint, headers = headers, params = self.imageProcessingParams, data = frame)
         except Exception as e:
-            print('__sendFrameForProcessing Excpetion -' + str(e))
+            print('__sendFrameForProcessing Excepetion -' + str(e))
             return "[]"
 
         if self.verbose:
@@ -115,6 +131,22 @@ class CameraCapture(object):
             except Exception:
                 print("Response from external processing service (status code): " + str(response.status_code))
         return json.dumps(response.json())
+
+    def __sendFrameForProcessingInCloud(self, frame):
+        headers = {'Content-Type': 'application/octet-stream'}
+        try:
+            response = requests.post(self.cloudProcessingEndpoint, headers = headers, params = self.cloudProcessingParams, data = frame)
+            #response = requests.post(self.imageProcessingEndpoint, headers = headers, params = self.imageProcessingParams, data = frame)
+        except Exception as e:
+            print('__sendFrameForProcessing in cloud Excepetion -' + str(e))
+            return "[]"
+
+        if self.verbose:
+            try:
+                print("Response from cloud processing service: (" + str(response.status_code) + ") " + json.dumps(response.json()))
+            except Exception:
+                print("Response from cloud processing service (status code): " + str(response.status_code))
+        return response
 
     def __displayTimeDifferenceInMs(self, endTime, startTime):
         return str(int((endTime-startTime) * 1000)) + " ms"
@@ -183,10 +215,10 @@ class CameraCapture(object):
             
             if self.verbose:
                 print("Time to pre-process a frame: " + self.__displayTimeDifferenceInMs(time.time(), startPreProcessing))
-                startEncodingForProcessing = time.time()
 
             #Process externally
             if self.imageProcessingEndpoint != "":
+                startEncodingForProcessing = time.time()
 
                 #Encode frame to send over HTTP
                 if self.nbOfPreprocessingSteps == 0:
@@ -196,23 +228,34 @@ class CameraCapture(object):
 
                 if self.verbose:
                     print("Time to encode a frame for processing: " + self.__displayTimeDifferenceInMs(time.time(), startEncodingForProcessing))
-                    startProcessingExternally = time.time()
 
                 #Send over HTTP for processing
+                startProcessingExternally = time.time()
                 response = self.__sendFrameForProcessing(encodedFrame)
                 if self.verbose:
                     print("Time to process frame externally: " + self.__displayTimeDifferenceInMs(time.time(), startProcessingExternally))
-                    startSendingToEdgeHub = time.time()
 
                 #forwarding outcome of external processing to the EdgeHub
                 if response != "[]" and self.sendToHubCallback is not None:
+                    startSendingToEdgeHub = time.time()
                     self.sendToHubCallback(response)
                     if self.verbose:
                         print("Time to message from processing service to edgeHub: " + self.__displayTimeDifferenceInMs(time.time(), startSendingToEdgeHub))
-                        startDisplaying = time.time()
+
+            #Process in cloud
+            # TODO: Only process in cloud based on outcome of local analysis
+            if self.cloudProcessingEndpoint != "":
+                print("Send image to LLM omni model in cloud for processing ")
+                #Send over HTTP for processing in cloud
+                startProcessingInCloud = time.time()
+                cloudFrame = cv2.imencode(".jpg", frame)[1].tostring()
+                response = self.__sendFrameForProcessingInCloud(cloudFrame)
+                if self.verbose:
+                    print("Time to process frame in cloud: " + self.__displayTimeDifferenceInMs(time.time(), startProcessingInCloud))
 
             #Display frames
             if self.showVideo:
+                startDisplaying = time.time()
                 try:
                     if self.nbOfPreprocessingSteps == 0:
                         if self.verbose and (perfForOneFrameInMs is not None):
@@ -232,12 +275,7 @@ class CameraCapture(object):
                     print("Could not display the video to a web browser.") 
                     print('Excpetion -' + str(e))
                 if self.verbose:
-                    if 'startDisplaying' in locals():
-                        print("Time to display frame: " + self.__displayTimeDifferenceInMs(time.time(), startDisplaying))
-                    elif 'startSendingToEdgeHub' in locals():
-                        print("Time to display frame: " + self.__displayTimeDifferenceInMs(time.time(), startSendingToEdgeHub))
-                    else:
-                        print("Time to display frame: " + self.__displayTimeDifferenceInMs(time.time(), startEncodingForProcessing))
+                    print("Time to display frame: " + self.__displayTimeDifferenceInMs(time.time(), startDisplaying))
                 perfForOneFrameInMs = int((time.time()-startOverall) * 1000)
                 if not self.isWebcam:
                     waitTimeBetweenFrames = max(int(1000 / self.capture.get(cv2.CAP_PROP_FPS))-perfForOneFrameInMs, 1)
