@@ -37,10 +37,8 @@ class CameraCapture(object):
     def __init__(
             self,
             videoPath,
-            localProcess = False, 
             imageProcessingEndpoint = "",
             imageProcessingParams = "", 
-            cloudProcess = False, 
             cloudProcessingEndpoint = "",
             cloudProcessingParams = "", 
             showVideo = False, 
@@ -60,17 +58,11 @@ class CameraCapture(object):
         else:
             #case of a video file
             self.isWebcam = False
-        self.localProcess = localProcess
-        if not self.localProcess:
-            imageProcessingEndpoint = ""
         self.imageProcessingEndpoint = imageProcessingEndpoint
         if imageProcessingParams == "":
             self.imageProcessingParams = "" 
         else:
             self.imageProcessingParams = json.loads(imageProcessingParams)
-        self.cloudProcess = cloudProcess
-        if not self.cloudProcess:
-            cloudProcessingEndpoint = ""
         self.cloudProcessingEndpoint = cloudProcessingEndpoint
         if cloudProcessingParams == "":
             self.cloudProcessingParams = "" 
@@ -86,7 +78,7 @@ class CameraCapture(object):
         self.cloudResizeHeight = cloudResizeHeight
         self.annotate = (self.imageProcessingEndpoint != "") and self.showVideo & annotate
         self.nbOfPreprocessingSteps = 0
-        self.autoRotate = True
+        self.autoRotate = False
         self.sendToHubCallback = sendToHubCallback
         self.vs = None
 
@@ -97,10 +89,8 @@ class CameraCapture(object):
         if self.verbose:
             print("Initialising the camera capture with the following parameters: ")
             print("   - Video path: " + self.videoPath)
-            print("   - Process Locally: " + str(self.localProcess))
             print("   - Image processing endpoint: " + self.imageProcessingEndpoint)
             print("   - Image processing params: " + json.dumps(self.imageProcessingParams))
-            print("   - Process in Cloud: " + str(self.cloudProcess))
             print("   - Cloud processing endpoint: " + self.cloudProcessingEndpoint)
             print("   - Cloud processing params: " + json.dumps(self.cloudProcessingParams))
             print("   - Show video: " + str(self.showVideo))
@@ -162,10 +152,14 @@ class CameraCapture(object):
         return str(int((endTime-startTime) * 1000)) + " ms"
 
     def __enter__(self):
-        #The VideoStream class always gives us the latest frame from the webcam. It uses another thread to read the frames.
-        self.vs = VideoStream(int(self.videoPath)).start()
-        time.sleep(1.0)#needed to load at least one frame into the VideoStream class
-        #self.capture = cv2.VideoCapture(int(self.videoPath))
+        if self.isWebcam:
+            #The VideoStream class always gives us the latest frame from the webcam. It uses another thread to read the frames.
+            self.vs = VideoStream(int(self.videoPath)).start()
+            time.sleep(1.0)#needed to load at least one frame into the VideoStream class
+            #self.capture = cv2.VideoCapture(int(self.videoPath))
+        else:
+            #In the case of a video file, we want to analyze all the frames of the video thus are not using VideoStream class
+            self.capture = cv2.VideoCapture(self.videoPath)
         return self
 
     def get_display_frame(self):
@@ -175,33 +169,62 @@ class CameraCapture(object):
         frameCounter = 0
         perfForOneFrameInMs = None
         while True:
-            startOverall = time.time()
-            startCapture = time.time()
+            if self.showVideo or self.verbose:
+                startOverall = time.time()
+            if self.verbose:
+                startCapture = time.time()
 
             frameCounter +=1
-            originalframe = self.vs.read()
-            frame = originalframe
-            startPreProcessing = time.time()
+            if self.isWebcam:
+                frame = self.vs.read()
+            else:
+                frame = self.capture.read()[1]
+                if frameCounter == 1:
+                    if self.capture.get(cv2.CAP_PROP_FRAME_WIDTH) < self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT):
+                        self.autoRotate = True
+                if self.autoRotate:
+                    frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE) #The counterclockwise is random...It coudl well be clockwise. Is there a way to auto detect it?
             if self.verbose:
+                if frameCounter == 1:
+                    if not self.isWebcam:
+                        print("Original frame size: " + str(int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))) + "x" + str(int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))))
+                        print("Frame rate (FPS): " + str(int(self.capture.get(cv2.CAP_PROP_FPS))))
                 print("Frame number: " + str(frameCounter))
                 print("Time to capture (+ straighten up) a frame: " + self.__displayTimeDifferenceInMs(time.time(), startCapture))
+                startPreProcessing = time.time()
             
-            #Pre-process locally
-            if self.convertToGray:
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            
-            if (self.resizeWidth != 0 or self.resizeHeight != 0):
-                frame = cv2.resize(frame, (self.resizeWidth, self.resizeHeight))
+            #Loop video
+            if not self.isWebcam:             
+                if frameCounter == self.capture.get(cv2.CAP_PROP_FRAME_COUNT):
+                    if self.loopVideo: 
+                        frameCounter = 0
+                        self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    else:
+                        break
 
+            #Pre-process locally
+            if self.nbOfPreprocessingSteps == 1 and self.convertToGray:
+                preprocessedFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            
+            if self.nbOfPreprocessingSteps == 1 and (self.resizeWidth != 0 or self.resizeHeight != 0):
+                preprocessedFrame = cv2.resize(frame, (self.resizeWidth, self.resizeHeight))
+
+            if self.nbOfPreprocessingSteps > 1:
+                preprocessedFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                preprocessedFrame = cv2.resize(preprocessedFrame, (self.resizeWidth,self.resizeHeight))
+            
             if self.verbose:
                 print("Time to pre-process a frame: " + self.__displayTimeDifferenceInMs(time.time(), startPreProcessing))
 
-            #Process using local vision model
+            #Process externally
             if self.imageProcessingEndpoint != "":
                 startEncodingForProcessing = time.time()
 
                 #Encode frame to send over HTTP
-                encodedFrame = cv2.imencode(".jpg", frame)[1].tostring()
+                if self.nbOfPreprocessingSteps == 0:
+                    encodedFrame = cv2.imencode(".jpg", frame)[1].tostring()
+                else:
+                    encodedFrame = cv2.imencode(".jpg", preprocessedFrame)[1].tostring()
 
                 if self.verbose:
                     print("Time to encode a frame for processing: " + self.__displayTimeDifferenceInMs(time.time(), startEncodingForProcessing))
@@ -234,12 +257,20 @@ class CameraCapture(object):
             if self.showVideo:
                 startDisplaying = time.time()
                 try:
-                    #if self.verbose and (perfForOneFrameInMs is not None):
-                    #    cv2.putText(frame, "FPS " + str(round(1000/perfForOneFrameInMs, 2)),(10, 35),cv2.FONT_HERSHEY_SIMPLEX,1.0,(0,0,255), 2)
-                    if self.annotate:
-                        #TODO: fix bug with annotate function
-                        self.__annotate(frame, response)
-                    self.displayFrame = cv2.imencode('.jpg', frame)[1].tobytes()
+                    if self.nbOfPreprocessingSteps == 0:
+                        if self.verbose and (perfForOneFrameInMs is not None):
+                            cv2.putText(frame, "FPS " + str(round(1000/perfForOneFrameInMs, 2)),(10, 35),cv2.FONT_HERSHEY_SIMPLEX,1.0,(0,0,255), 2)
+                        if self.annotate:
+                            #TODO: fix bug with annotate function
+                            self.__annotate(frame, response)
+                        self.displayFrame = cv2.imencode('.jpg', frame)[1].tobytes()
+                    else:
+                        if self.verbose and (perfForOneFrameInMs is not None):
+                            cv2.putText(preprocessedFrame, "FPS " + str(round(1000/perfForOneFrameInMs, 2)),(10, 35),cv2.FONT_HERSHEY_SIMPLEX,1.0,(0,0,255), 2)
+                        if self.annotate:
+                            #TODO: fix bug with annotate function
+                            self.__annotate(preprocessedFrame, response)
+                        self.displayFrame = cv2.imencode('.jpg', preprocessedFrame)[1].tobytes()
                 except Exception as e:
                     print("Could not display the video to a web browser.") 
                     print('Excpetion -' + str(e))

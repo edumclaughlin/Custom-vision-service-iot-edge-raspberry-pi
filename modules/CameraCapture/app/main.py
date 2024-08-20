@@ -58,8 +58,10 @@ class HubManager(object):
 
 def main(
         videoPath,
+        localProcess=False,
         imageProcessingEndpoint="",
         imageProcessingParams="",
+        cloudProcess=False,
         cloudProcessingEndpoint="",
         cloudProcessingParams="",
         showVideo=True,
@@ -76,8 +78,10 @@ def main(
     Capture a camera feed, send it to processing and forward outputs to EdgeHub
 
     :param int videoPath: camera device path such as /dev/video0 or a test video file such as /TestAssets/myvideo.avi. Mandatory.
+    :param bool localProcess: Call the local image processing service.
     :param str imageProcessingEndpoint: service endpoint to send the frames to for processing. Example: "http://face-detect-service:8080". Leave empty when no external processing is needed (Default). Optional.
     :param str imageProcessingParams: query parameters to send to the processing service. Example: "'returnLabels': 'true'". Empty by default. Optional.
+    :param bool cloudProcess: Call the cloud image processing service.
     :param str cloudProcessingEndpoint: service endpoint to send the frames to for processing in cloud. Example: "http://face-detect-service:8080". Leave empty when no external processing is needed (Default). Optional.
     :param str cloudProcessingParams: query parameters to send to the processing in cloud. Example: "'returnLabels': 'true'". Empty by default. Optional.
     :param bool showVideo: show the video in a windows. False by default. Optional.
@@ -100,8 +104,8 @@ def main(
         except Exception as iothub_error:
             print("Unexpected error %s from IoTHub" % iothub_error)
             return
-        with CameraCapture(videoPath, imageProcessingEndpoint, imageProcessingParams, 
-                           cloudProcessingEndpoint, cloudProcessingParams,
+        with CameraCapture(videoPath, localProcess, imageProcessingEndpoint, imageProcessingParams, 
+                           cloudProcess, cloudProcessingEndpoint, cloudProcessingParams,
                            showVideo, verbose, loopVideo, convertToGray, 
                            resizeWidth, resizeHeight, cloudResizeWidth, cloudResizeHeight,
                            annotate, send_to_Hub_callback) as cameraCapture:
@@ -124,8 +128,10 @@ if __name__ == '__main__':
 
     try:
         VIDEO_PATH = os.environ['VIDEO_PATH']
+        LOCAL_PROCESS = __convertStringToBool(os.getenv('LOCAL_PROCESS', 'False'))
         IMAGE_PROCESSING_ENDPOINT = os.getenv('IMAGE_PROCESSING_ENDPOINT', "")
         IMAGE_PROCESSING_PARAMS = os.getenv('IMAGE_PROCESSING_PARAMS', "")
+        CLOUD_PROCESS = __convertStringToBool(os.getenv('CLOUD_PROCESS', 'False'))
         CLOUD_PROCESSING_ENDPOINT = os.getenv('CLOUD_PROCESSING_ENDPOINT', "")
         CLOUD_PROCESSING_PARAMS = os.getenv('CLOUD_PROCESSING_PARAMS', "")
         SHOW_VIDEO = __convertStringToBool(os.getenv('SHOW_VIDEO', 'False'))
@@ -148,5 +154,5 @@ if __name__ == '__main__':
         print(error)
         sys.exit(1)
 
-    main(VIDEO_PATH, IMAGE_PROCESSING_ENDPOINT, IMAGE_PROCESSING_PARAMS, CLOUD_PROCESSING_ENDPOINT, CLOUD_PROCESSING_PARAMS, SHOW_VIDEO,
+    main(VIDEO_PATH, LOCAL_PROCESS, IMAGE_PROCESSING_ENDPOINT, IMAGE_PROCESSING_PARAMS, CLOUD_PROCESS, CLOUD_PROCESSING_ENDPOINT, CLOUD_PROCESSING_PARAMS, SHOW_VIDEO,
          VERBOSE, LOOP_VIDEO, CONVERT_TO_GRAY, RESIZE_WIDTH, RESIZE_HEIGHT, CLOUD_RESIZE_WIDTH, CLOUD_RESIZE_HEIGHT, ANNOTATE)
