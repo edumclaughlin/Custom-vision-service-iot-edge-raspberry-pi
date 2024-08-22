@@ -32,7 +32,7 @@ class ImageStreamHandler(tornado.websocket.WebSocketHandler):
         self.clients.remove(self)
         print("Image Server Connection::closed")
 
-
+# This image server runs in its own thread 
 class ImageServer(threading.Thread):
 
     def __init__(self, port, cameraObj):

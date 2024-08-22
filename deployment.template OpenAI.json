@@ -53,6 +53,10 @@
               "CLOUD_PROCESS":  {"value": "True"},
               "CLOUD_PROCESSING_ENDPOINT":  {"value": "http://192.168.2.21:7071/api/AnalyzeImage"},
               "CONVERT_TO_GRAY":  {"value": "False"},
+              "RESIZE_WIDTH":  {"value": "672"},
+              "RESIZE_HEIGHT":  {"value": "672"},
+              "CLOUD_RESIZE_WIDTH":  {"value": "672"},
+              "CLOUD_RESIZE_HEIGHT":  {"value": "672"},
               "SHOW_VIDEO":  {"value": "True"},
               "VERBOSE":  {"value": "True"}
             },

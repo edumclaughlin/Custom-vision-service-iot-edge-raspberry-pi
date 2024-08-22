@@ -1,0 +1,41 @@
+body {
+    font-family: Arial, sans-serif;
+  }
+  
+  .brand-header {
+    background-color: #ab1827;
+    color: white;
+    padding: 10px;
+    text-align: center;
+  }
+  
+  .logo-image {
+    max-height: 100px; /* Set the maximum height to 100 pixels */
+    width: auto; /* Automatically set the width based on the aspect ratio */
+  }
+  
+  .main-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  
+  .image-container {
+    width: 80%;
+    height: auto;
+    margin-bottom: 20px;
+  }
+  
+  .controls {
+    background-color: #ab1827;
+    padding: 10px;
+    text-align: center;
+  }
+  
+  button {
+    border: none;
+    background-color: #ab1827;
+    color: white;
+    cursor: pointer;
+  }

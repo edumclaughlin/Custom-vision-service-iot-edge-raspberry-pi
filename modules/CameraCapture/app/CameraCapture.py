@@ -12,7 +12,7 @@ else:
 # pylint: disable=E1101
 # pylint: disable=E0401
 # Disabling linting that is not supported by Pylint for C extensions such as OpenCV. See issue https://github.com/PyCQA/pylint/issues/1955 
-import numpy
+import numpy as np
 import requests
 import json
 import time
@@ -132,8 +132,8 @@ class CameraCapture(object):
         try:
             response = requests.post(self.imageProcessingEndpoint, headers = headers, params = self.imageProcessingParams, data = frame)
         except Exception as e:
-            print('__sendFrameForProcessing Excepetion -' + str(e))
-            return "[]"
+            print('__sendFrameForProcessing Exception -' + str(e))
+            return None
 
         if self.verbose:
             try:
@@ -146,10 +146,9 @@ class CameraCapture(object):
         headers = {'Content-Type': 'application/octet-stream'}
         try:
             response = requests.post(self.cloudProcessingEndpoint, headers = headers, params = self.cloudProcessingParams, data = frame)
-            #response = requests.post(self.imageProcessingEndpoint, headers = headers, params = self.imageProcessingParams, data = frame)
         except Exception as e:
             print('__sendFrameForProcessing in cloud Excepetion -' + str(e))
-            return "[]"
+            return None
 
         if self.verbose:
             try:
@@ -222,13 +221,60 @@ class CameraCapture(object):
             #Process in cloud
             # TODO: Only process in cloud based on outcome of local analysis
             if self.cloudProcessingEndpoint != "":
-                print("Send image to LLM omni model in cloud for processing ")
-                #Send over HTTP for processing in cloud
+                print("Send image cloud model for processing ")
                 startProcessingInCloud = time.time()
                 cloudFrame = cv2.imencode(".jpg", frame)[1].tostring()
                 response = self.__sendFrameForProcessingInCloud(cloudFrame)
                 if self.verbose:
                     print("Time to process frame in cloud: " + self.__displayTimeDifferenceInMs(time.time(), startProcessingInCloud))
+
+            # Process response from cloud analysis
+            if response and isinstance(response, requests.Response) and response.status_code == 200:
+                try:
+                    json_response = response.json()
+                    print(json.dumps(json_response, indent=4))  # Pretty-print the JSON
+                    cloud_model = json_response['model']
+                    cloud_productcount = json_response['product count']
+                    cloud_promptresponse = json_response['prompt response']
+                    cloud_jsonresponse = json_response['json response']
+                    print(f"Found {cloud_productcount} products")
+
+                    # Annotate the frame with the analysis result
+                    if (cloud_model == 'Azure Product Recognition'):
+                        #base64image = cloud_jsonresponse['base64image']
+                        #frame = base64.b64decode(base64image)
+                        #decoded_bytes = base64.b64decode(base64image)
+                        #frame = cv2.imdecode(np.frombuffer(decoded_bytes, dtype=np.uint8), 1)
+                        num_products_found = 0
+                        threshold = 0.3
+                        for product in cloud_jsonresponse['products']:
+                            if product['tags'][0]['confidence'] > threshold:
+                                l, t, w, h = product['boundingBox']['x'], product['boundingBox']['y'], product['boundingBox']['w'], product['boundingBox']['h']
+                                #img = cv2.rectangle(img, (l, t), (l + w, t + h), (0, 255, 0), 5)
+                                cv2.rectangle(frame, (l, t), (l + w, t + h), (0, 255, 0), 5)
+                                # For better visualization, only show the first 15 characters of the label
+                                #img = cv2.putText(img, product['tags'][0]['name'][0:15], (l, t - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2, cv2.LINE_AA)
+                                cv2.putText(frame, product['tags'][0]['name'][0:15], (l, t - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2, cv2.LINE_AA)
+                                num_products_found += 1
+
+                        # Loop over the gaps and draw rectangles for each one
+                        for product in cloud_jsonresponse['gaps']:
+                            if product['tags'][0]['confidence'] > threshold:
+                                l, t, w, h = product['boundingBox']['x'], product['boundingBox']['y'], product['boundingBox']['w'], product['boundingBox']['h']
+                                #img = cv2.rectangle(img, (l, t), (l + w, t + h), (255, 0, 0), 5)
+                                cv2.rectangle(frame, (l, t), (l + w, t + h), (255, 0, 0), 5)
+                                #img = cv2.putText(img, 'gap', (l, t - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2, cv2.LINE_AA)
+                                cv2.putText(frame, 'gap', (l, t - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2, cv2.LINE_AA)
+
+
+                except json.JSONDecodeError:
+                    print("Failed to parse JSON")
+            else:
+                # Handle the case where response is None or not a requests.Response instance
+                if response == None:
+                    print("Invalid response received")
+                elif isinstance(response, requests.Response):
+                    print(f"Server returned status code {response.status_code}")
 
             #Display frames
             if self.showVideo:

@@ -1,10 +1,30 @@
 <html>
   <head>
-    <title>Video Stream</title>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Camera - iotedge1</title>
+      <link rel="stylesheet" href="styles.css">
+    </head>
   </head>
   <body>
-    <h1>Video Stream</h1>
-    <img id="currentImage" style="border:2px solid teal">
+    <header class="brand-header">
+      <img src="kfc-logo-png.png" alt="Brand Logo" class="logo-image">
+      <h1>Camera - iotedge1</h1>
+    </header>
+      <!-- Main content area -->
+      <main>
+        <!-- Image container with a loading indicator -->
+        <div class="image-container">
+          <img id="currentImage" style="border:2px solid teal; max-width: 100%; height: auto;">
+        </div>
+
+        <!-- Controls for seeking and playing/pause -->
+        <div class="controls">
+          <button id="pause-button">Pause</button>
+          <button id="play-button" onclick="sendWs('start')">Play</button>
+        </div>
+      </main>
     <script>
       var img = document.getElementById("currentImage");
       var ws = new WebSocket("ws://" + location.host + "/stream");
@@ -21,6 +41,20 @@
       img.onload = function() {
         ws.send("next");
       }
+
+      // Function to send a message to the server with the requested image frame
+      function sendWs(msgType) {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: msgType }));
+        } else {
+          console.error("WebSocket connection is closed.");
+        }
+      }
+
+      // Add event listeners to play/pause buttons
+      document.getElementById('play-button').addEventListener('click', function() { sendWs('start'); });
+      document.getElementById('pause-button').addEventListener('click', function() { sendWs('pause'); });
+
     </script>
   </body>
 </html>
