@@ -2,7 +2,7 @@
   "modulesContent": {
     "$edgeAgent": {
       "properties.desired": {
-        "schemaVersion": "1.0",
+        "schemaVersion": "1.1",
         "runtime": {
           "type": "docker",
           "settings": {
@@ -102,7 +102,7 @@
     },
     "$edgeHub": {
       "properties.desired": {
-        "schemaVersion": "1.0",
+        "schemaVersion": "1.2",
         "routes": {
           "CameraCaptureToFeedbackManager": "FROM /messages/modules/camera-capture/outputs/output1 INTO BrokeredEndpoint(\"/modules/feedback-manager/inputs/input1\")",
           "CameraCaptureToIoTHub": "FROM /messages/modules/camera-capture/outputs/output1 INTO $upstream",

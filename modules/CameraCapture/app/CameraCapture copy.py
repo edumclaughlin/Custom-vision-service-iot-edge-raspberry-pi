@@ -152,14 +152,9 @@ class CameraCapture(object):
         return str(int((endTime-startTime) * 1000)) + " ms"
 
     def __enter__(self):
-        if self.isWebcam:
-            #The VideoStream class always gives us the latest frame from the webcam. It uses another thread to read the frames.
-            self.vs = VideoStream(int(self.videoPath)).start()
-            time.sleep(1.0)#needed to load at least one frame into the VideoStream class
-            #self.capture = cv2.VideoCapture(int(self.videoPath))
-        else:
-            #In the case of a video file, we want to analyze all the frames of the video thus are not using VideoStream class
-            self.capture = cv2.VideoCapture(self.videoPath)
+        #The VideoStream class always gives us the latest frame from the webcam. It uses another thread to read the frames.
+        self.vs = VideoStream(int(self.videoPath)).start()
+        time.sleep(1.0)#needed to load at least one frame into the VideoStream class
         return self
 
     def get_display_frame(self):

@@ -14,54 +14,48 @@
     </header>
       <!-- Main content area -->
       <main>
-        <!-- Raw image
-        <div class="image-container">
-          <img id="currentImage" style="border:2px solid teal; max-width: 100%; height: auto;">
-        </div> -->
         <!-- Raw image -->
         <div class="image-container">
           <img id="currentImage" style="border:2px solid teal; max-width: 100%; height: auto;">
-          <img id="processedImage" style="border:2px solid teal; max-width: 100%; height: auto;">
         </div>
         <!-- Processed image -->
-        <!-- <div class="image-container">
+        <div class="image-container">
           <img id="processedImage" style="border:2px solid teal; max-width: 100%; height: auto;">
-        </div> -->
+        </div>
 
         <!-- Controls for seeking and playing/pause -->
         <div class="controls">
-          <button id="play-button" onclick="ws.send('pause')">Pause</button>
-          <button id="pause-button" onclick="ws.send('start')">Start</button>
+          <button id="pause-button" onclick="ws.send('pause')">Pause</button>
+          <button id="start-button" onclick="ws.send('start')">Start</button>
         </div>
       </main>
     <script>
       var currentimg = document.getElementById("currentImage");
-      // var binaryimg = document.getElementById("binaryImage");
       var processedimg = document.getElementById("processedImage");
       var ws = new WebSocket("ws://" + location.host + "/stream");
 
       ws.onopen = function() {
           console.log("connection was established");
-          // ws.send("next");
+          ws.send("next");
       };
 
-      ws.onmessage = function(event) {
-          console.log(`Received message: ${event.data}`);
+      ws.onmessage = function(msg) {
+          currentimg.src = 'data:image/png;base64, ' + msg.data;
       };
 
-      // // Once an image has been refreshed this code will fire and request another 
-      // currentimg.onload = function() {
-      //   ws.send("next");
-      // }
+      // Once an image has been refreshed this code will fire and request another 
+      currentimg.onload = function() {
+        ws.send("next");
+      }
 
       // Function to send a message to the server with the requested image frame
-      // function sendWs(msgType) {
-      //   if (ws.readyState === WebSocket.OPEN) {
-      //     ws.send(JSON.stringify({ type: msgType }));
-      //   } else {
-      //     console.error("WebSocket connection is closed.");
-      //   }
-      // }
+      function sendWs(msgType) {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: msgType }));
+        } else {
+          console.error("WebSocket connection is closed.");
+        }
+      }
 
       // Add event listeners to play/pause buttons
       // document.getElementById('play-button').addEventListener('click', function() { sendWs('start'); });
@@ -69,13 +63,16 @@
       document.getElementById('play-button').addEventListener('click', function() { ws.send("start"); });
       document.getElementById('pause-button').addEventListener('click', function() { ws.send("pause"); });
 
-      //Establish WebSocket connection for the current images
-      var currentImageSocket = new WebSocket("ws://" + location.host + "/currentimage");
+      // Establish WebSocket connection for the current images
+      var currentImageSocket = new WebSocket('ws://"" + location.host + "/currentimage');
+
+      // Establish WebSocket connection for processed images
+      var processedImageSocket = new WebSocket('ws://"" + location.host + "/processedimage');
 
       // Handle incoming "current" images
       currentImageSocket.onmessage = function(event) {
         if (event.data instanceof Blob) {
-            // // Get the existing image element by its ID
+            // Get the existing image element by its ID
             const currentimg = document.getElementById('currentImage');
             
             // Create an object URL from the Blob and set it as the src of the image
@@ -84,7 +81,6 @@
             // Optionally, manage memory by revoking the object URL once the image is loaded
             currentimg.onload = () => {
                 URL.revokeObjectURL(currentimg.src); // Clean up the object URL to release memory
-                currentImageSocket.send("next");
             };
         }
       }
@@ -93,15 +89,6 @@
         console.log("connection was established for current images");
         currentImageSocket.send("next");
       };
-
-      // // Once an image has been refreshed this code will fire and request another 
-      // binaryimg.onload = function() {
-      //   URL.revokeObjectURL(binaryimg.src); // Clean up the object URL to release memory
-      //   processedImageSocket.send("next");
-      // }
-
-      // Establish WebSocket connection for processed images
-      var processedImageSocket = new WebSocket("ws://" + location.host + "/processedimage");
 
       processedImageSocket.onmessage = function(event) {
         if (event.data instanceof Blob) {
@@ -114,7 +101,6 @@
             // Optionally, manage memory by revoking the object URL once the image is loaded
             processedimg.onload = () => {
                 URL.revokeObjectURL(processedimg.src); // Clean up the object URL to release memory
-                processedImageSocket.send("next");
             };
         }
       }
@@ -123,11 +109,6 @@
         console.log("connection was established for processed images");
         processedImageSocket.send("next");
       };
-
-      // // Once an image has been refreshed this code will fire and request another 
-      // processedImageSocket.onload = function() {
-      //   ws.send("next");
-      // }
 
     </script>
   </body>
