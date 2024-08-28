@@ -31,6 +31,11 @@ import ImageServer
 from ImageServer import ImageServer
 import ImageProcessor
 from ImageProcessor import ImageProcessor
+import logging
+from Helpers import Helper
+
+# Get a logger for this module
+logger = logging.getLogger(__name__)
 
 # class will continually poll the camera and raise events for the ImageServer (after start is called)
 class CameraCapture(object):
@@ -42,6 +47,7 @@ class CameraCapture(object):
         except ValueError:
             return False
 
+    # Initialise all instance variables here, this is important to avoid instance confusion
     def __init__(
             self,
             videoPath,
@@ -59,6 +65,7 @@ class CameraCapture(object):
             resizeHeight = 0,
             cloudResizeWidth = 0,
             cloudResizeHeight = 0,
+            waitTime = 3,
             annotate = False,
             sendToHubCallback = None):
         self.videoPath = videoPath
@@ -92,30 +99,12 @@ class CameraCapture(object):
         self.autoRotate = True
         self.sendToHubCallback = sendToHubCallback
         self.vs = None
+        self.waitTime = waitTime # Processing delay between frames in seconds
 
         if self.convertToGray:
             self.nbOfPreprocessingSteps +=1
         if self.resizeWidth != 0 or self.resizeHeight != 0:
             self.nbOfPreprocessingSteps +=1
-        if self.verbose:
-            print("Initialising the camera capture with the following parameters: ")
-            print("   - Video path: " + self.videoPath)
-            print("   - Process Locally: " + str(self.localProcess))
-            print("   - Image processing endpoint: " + self.imageProcessingEndpoint)
-            print("   - Image processing params: " + json.dumps(self.imageProcessingParams))
-            print("   - Process in Cloud: " + str(self.cloudProcess))
-            print("   - Cloud processing endpoint: " + self.cloudProcessingEndpoint)
-            print("   - Cloud processing params: " + json.dumps(self.cloudProcessingParams))
-            print("   - Show video: " + str(self.showVideo))
-            print("   - Loop video: " + str(self.loopVideo))
-            print("   - Convert to gray: " + str(self.convertToGray))
-            print("   - Resize width: " + str(self.resizeWidth))
-            print("   - Resize height: " + str(self.resizeHeight))
-            print("   - Cloud Resize width: " + str(self.cloudResizeWidth))
-            print("   - Cloud Resize height: " + str(self.cloudResizeHeight))
-            print("   - Annotate: " + str(self.annotate))
-            print("   - Send processing results to hub: " + str(self.sendToHubCallback is not None))
-            print()
 
         # Instance variable used to hold the current web-cam frame and accessed by the ImageServer     
         self.displayFrame = None
@@ -127,50 +116,34 @@ class CameraCapture(object):
             self.imageServer = ImageServer(5012, self)
             self.imageServer.start()
         
-        # Getter for self.displayFrame instance variable
         self.display_originalFrame = None
         self.display_processedFrame = None
 
-    def __annotate(self, frame, response):
-        AnnotationParserInstance = AnnotationParser()
-        #TODO: Make the choice of the service configurable
-        listOfRectanglesToDisplay = AnnotationParserInstance.getCV2RectanglesFromProcessingService1(response)
-        for rectangle in listOfRectanglesToDisplay:
-            cv2.rectangle(frame, (rectangle(0), rectangle(1)), (rectangle(2), rectangle(3)), (0,0,255),4)
-        return
+        self.processor = ImageProcessor(self)
 
-    def __sendFrameForProcessing(self, frame):
-        headers = {'Content-Type': 'application/octet-stream'}
-        try:
-            response = requests.post(self.imageProcessingEndpoint, headers = headers, params = self.imageProcessingParams, data = frame)
-        except Exception as e:
-            print('__sendFrameForProcessing Exception -' + str(e))
-            return None
+        self.productsDetected = ""
+        self.prompt = ""
+        self.promptResponse = ""
 
         if self.verbose:
-            try:
-                print("Response from external processing service: (" + str(response.status_code) + ") " + json.dumps(response.json()))
-            except Exception:
-                print("Response from external processing service (status code): " + str(response.status_code))
-        return json.dumps(response.json())
-
-    def __sendFrameForProcessingInCloud(self, frame):
-        headers = {'Content-Type': 'application/octet-stream'}
-        try:
-            response = requests.post(self.cloudProcessingEndpoint, headers = headers, params = self.cloudProcessingParams, data = frame)
-        except Exception as e:
-            print('__sendFrameForProcessing in cloud Excepetion -' + str(e))
-            return None
-
-        if self.verbose:
-            try:
-                print("Response from cloud processing service: (" + str(response.status_code) + ") " + json.dumps(response.json()))
-            except Exception:
-                print("Response from cloud processing service (status code): " + str(response.status_code))
-        return response
-
-    def __displayTimeDifferenceInMs(self, endTime, startTime):
-        return str(int((endTime-startTime) * 1000)) + " ms"
+            logger.info("Initialising the camera capture with the following parameters: ")
+            logger.info("   - Video path: %s", self.videoPath)
+            logger.info("   - Process Locally: %s", str(self.localProcess))
+            logger.info("   - Image processing endpoint: %s", self.imageProcessingEndpoint)
+            logger.info("   - Image processing params: %s", json.dumps(self.imageProcessingParams))
+            logger.info("   - Process in Cloud: %s", str(self.cloudProcess))
+            logger.info("   - Cloud processing endpoint: %s", self.cloudProcessingEndpoint)
+            logger.info("   - Cloud processing params: %s", json.dumps(self.cloudProcessingParams))
+            logger.info("   - Show video: %s", str(self.showVideo))
+            logger.info("   - Loop video: %s", str(self.loopVideo))
+            logger.info("   - Convert to gray: %s", str(self.convertToGray))
+            logger.info("   - Resize width: %s", str(self.resizeWidth))
+            logger.info("   - Resize height: %s", str(self.resizeHeight))
+            logger.info("   - Cloud Resize width: %s", str(self.cloudResizeWidth))
+            logger.info("   - Cloud Resize height: %s", str(self.cloudResizeHeight))
+            logger.info("   - Wait time: %s", str(self.waitTime))
+            logger.info("   - Annotate: %s", str(self.annotate))
+            logger.info("   - Send processing results to hub: %s", str(self.sendToHubCallback is not None))
 
     def __enter__(self):
         #The VideoStream class always gives us the latest frame from the webcam. It uses another thread to read the frames.
@@ -188,7 +161,7 @@ class CameraCapture(object):
         return self.display_processedFrame
     
     # Continually polls the camera and prepares frames for the ImageServer to consume
-    # TODO: The execution time for each loop iteration is injected between video frames 
+    # The execution time for each loop iteration is injected between video frames 
     # therefore, we need to run all dependent tasks on seperate threads to ensure frames can be presented quickly
     def start(self):
         frameCounter = 0
@@ -198,10 +171,9 @@ class CameraCapture(object):
         self.processed_frame = self.original_frame
 
         # Create an instance of the ImageProcessor class which will run in an async process
-        # The process monitors queues to get work an post processed images
+        # The process monitors queues to get work and post processed images
         # The IamgeProcessor will perform those compute intensive actions that would if
         # performed in-process result in an inability to actively monitor the video feed
-        self.processor = ImageProcessor()
         self.processor_process = Thread(target=self.processor.continuous_process)
         self.processor_process.daemon = True  # This will ensure that the process is killed when main.py exits
 
@@ -214,26 +186,27 @@ class CameraCapture(object):
                 frameCounter +=1
                 self.original_frame = self.vs.read()
                 startPreProcessing = time.time()
-                # if self.verbose:
-                #     print("Frame number: " + str(frameCounter))
-                #     print("Time to capture (+ straighten up) a frame: " + self.__displayTimeDifferenceInMs(time.time(), startCapture))
+                logger.debug("Frame number: %d", frameCounter)
+                logger.debug("Time to capture (+ straighten up) a frame: %s", Helper.display_time_difference_in_ms(time.time(), startCapture))
 
                 # If the processing engine is not currently processing a frame
                 # Then place the current frame into the input queue for image processing
-                # print(f"Queue has {processor.image_queue.qsize()} elements.")
                 if self.processor.work_queue.empty():
-                    # print("Send image frame to process")
+                    logger.debug("Send image frame to process")
                     self.processor.work_queue.put(self.original_frame)
-                    # print(f"Queue now has {processor.work_queue.qsize()} elements.")
 
-                print(f"Client output Queue has {self.processor.output_queue.qsize()} elements.")
                 if not self.processor.output_queue.empty():
                     try:
                         self.processed_frame = self.processor.output_queue.get(block=False)
-                        print(f"Queue now has {self.processor.output_queue.qsize()} elements.")
-                        self.imageServer.send_to_clients("Processed Frame Ready")
+                        logger.debug(f"Output queue now has %d elements.", self.processor.output_queue.qsize())
+                        # Send any updated statess to connected web clients
+                        msg = {
+                            "products_detected": self.productsDetected,
+                            "prompt_response": self.promptResponse
+                        }
+                        json_string = json.dumps(msg, indent=4)  # `indent` is optional
+                        self.imageServer.send_to_clients(json_string)
                     except queue.Empty:
-                    #except Exception:
                         pass
 
                 # Get a processed image from the result queue if available
@@ -241,97 +214,6 @@ class CameraCapture(object):
                     self.processed_frame, _ = self.processor.get_result()
                 except:
                     pass
-
-                # #Pre-process locally
-                # if self.convertToGray:
-                #     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                
-                # if (self.resizeWidth != 0 or self.resizeHeight != 0):
-                #     frame = cv2.resize(frame, (self.resizeWidth, self.resizeHeight))
-
-                # if self.verbose:
-                #     print("Time to pre-process a frame: " + self.__displayTimeDifferenceInMs(time.time(), startPreProcessing))
-
-                # #Process using local vision model
-                # if self.imageProcessingEndpoint != "":
-                #     startEncodingForProcessing = time.time()
-
-                #     #Encode frame to send over HTTP
-                #     encodedFrame = cv2.imencode(".jpg", frame)[1].tostring()
-
-                #     if self.verbose:
-                #         print("Time to encode a frame for processing: " + self.__displayTimeDifferenceInMs(time.time(), startEncodingForProcessing))
-
-                #     #Send over HTTP for processing
-                #     startProcessingExternally = time.time()
-                #     response = self.__sendFrameForProcessing(encodedFrame)
-                #     if self.verbose:
-                #         print("Time to process frame externally: " + self.__displayTimeDifferenceInMs(time.time(), startProcessingExternally))
-
-                #     #forwarding outcome of external processing to the EdgeHub
-                #     if response != "[]" and self.sendToHubCallback is not None:
-                #         startSendingToEdgeHub = time.time()
-                #         self.sendToHubCallback(response)
-                #         if self.verbose:
-                #             print("Time to message from processing service to edgeHub: " + self.__displayTimeDifferenceInMs(time.time(), startSendingToEdgeHub))
-
-                # #Process in cloud
-                # # TODO: Only process in cloud based on outcome of local analysis
-                # if self.cloudProcessingEndpoint != "":
-                #     print("Send image cloud model for processing ")
-                #     startProcessingInCloud = time.time()
-                #     cloudFrame = cv2.imencode(".jpg", frame)[1].tostring()
-                #     response = self.__sendFrameForProcessingInCloud(cloudFrame)
-                #     if self.verbose:
-                #         print("Time to process frame in cloud: " + self.__displayTimeDifferenceInMs(time.time(), startProcessingInCloud))
-
-                # # Process response from cloud analysis
-                # if response and isinstance(response, requests.Response) and response.status_code == 200:
-                #     try:
-                #         json_response = response.json()
-                #         print(json.dumps(json_response, indent=4))  # Pretty-print the JSON
-                #         cloud_model = json_response['model']
-                #         cloud_productcount = json_response['product count']
-                #         cloud_promptresponse = json_response['prompt response']
-                #         cloud_jsonresponse = json_response['json response']
-                #         print(f"Found {cloud_productcount} products")
-
-                #         # Annotate the frame with the analysis result
-                #         if (cloud_model == 'Azure Product Recognition'):
-                #             #base64image = cloud_jsonresponse['base64image']
-                #             #frame = base64.b64decode(base64image)
-                #             #decoded_bytes = base64.b64decode(base64image)
-                #             #frame = cv2.imdecode(np.frombuffer(decoded_bytes, dtype=np.uint8), 1)
-                #             num_products_found = 0
-                #             threshold = 0.3
-                #             for product in cloud_jsonresponse['products']:
-                #                 if product['tags'][0]['confidence'] > threshold:
-                #                     l, t, w, h = product['boundingBox']['x'], product['boundingBox']['y'], product['boundingBox']['w'], product['boundingBox']['h']
-                #                     #img = cv2.rectangle(img, (l, t), (l + w, t + h), (0, 255, 0), 5)
-                #                     cv2.rectangle(frame, (l, t), (l + w, t + h), (0, 255, 0), 5)
-                #                     # For better visualization, only show the first 15 characters of the label
-                #                     #img = cv2.putText(img, product['tags'][0]['name'][0:15], (l, t - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2, cv2.LINE_AA)
-                #                     cv2.putText(frame, product['tags'][0]['name'][0:15], (l, t - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2, cv2.LINE_AA)
-                #                     num_products_found += 1
-
-                #             # Loop over the gaps and draw rectangles for each one
-                #             for product in cloud_jsonresponse['gaps']:
-                #                 if product['tags'][0]['confidence'] > threshold:
-                #                     l, t, w, h = product['boundingBox']['x'], product['boundingBox']['y'], product['boundingBox']['w'], product['boundingBox']['h']
-                #                     #img = cv2.rectangle(img, (l, t), (l + w, t + h), (255, 0, 0), 5)
-                #                     cv2.rectangle(frame, (l, t), (l + w, t + h), (255, 0, 0), 5)
-                #                     #img = cv2.putText(img, 'gap', (l, t - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2, cv2.LINE_AA)
-                #                     cv2.putText(frame, 'gap', (l, t - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2, cv2.LINE_AA)
-
-
-                #     except json.JSONDecodeError:
-                #         print("Failed to parse JSON")
-                # else:
-                #     # Handle the case where response is None or not a requests.Response instance
-                #     if response == None:
-                #         print("Invalid response received")
-                #     elif isinstance(response, requests.Response):
-                #         print(f"Server returned status code {response.status_code}")
 
                 #Display frames
                 if self.showVideo:
@@ -341,30 +223,20 @@ class CameraCapture(object):
                         # Setting this variable will make it available to the ImageServer web-server
                         self.display_originalFrame = cv2.imencode('.jpg', self.original_frame)[1].tobytes()
                     except Exception as e:
-                        print("Could not display the video to a web browser.") 
-                        print('Exception -' + str(e))
+                        pass
                     # Prepare a jpg of the processed frame for display on the web-server
                     try:
                         # Setting this variable will make it available to the ImageServer web-server
                         self.display_processedFrame = cv2.imencode('.jpg', self.processed_frame)[1].tobytes()
                     except Exception as e:
-                        print("Could not display processed frame to a web browser.") 
-                        print('Exception -' + str(e))
-
-                    # if self.verbose:
-                    #     print("Time to display frame: " + self.__displayTimeDifferenceInMs(time.time(), startDisplaying))
-                    perfForOneFrameInMs = int((time.time()-startOverall) * 1000)
-
-                # if self.verbose:
-                #     perfForOneFrameInMs = int((time.time()-startOverall) * 1000)
-                #     print("Total time for one frame: " + self.__displayTimeDifferenceInMs(time.time(), startOverall))
+                        pass
 
             # TODO: Add code to stop/start image processing 
             processor.stop()  # Signal the image processing service to exit
         except Exception as e:
-            print('Exception -' + str(e))
+            logger.exception('EXCEPTION')
         finally:
-            processor_process.join()  # Wait until the image processing service has finished
+            self.processor_process.join()  # Wait until the image processing service has finished
     
     def __exit__(self, exception_type, exception_value, traceback):
         if not self.isWebcam:

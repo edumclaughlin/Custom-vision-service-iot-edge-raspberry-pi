@@ -50,11 +50,12 @@
               "VIDEO_PATH": {"value": "0"},
               "LOCAL_PROCESS":  {"value": "False"},
               "IMAGE_PROCESSING_ENDPOINT":  {"value": "http://image-classifier-service:80/image"},
-              "CLOUD_PROCESS":  {"value": "True"},
-              "CLOUD_PROCESSING_ENDPOINT":  {"value": "http://192.168.2.21:7071/api/AnalyzeImage"},
+              "CLOUD_PROCESS":  {"value": "False"},
+              "CLOUD_PROCESSING_ENDPOINT":  {"value": "http://192.168.2.21:7071/api/AnalyzeImage/Azure"},
               "CONVERT_TO_GRAY":  {"value": "False"},
               "SHOW_VIDEO":  {"value": "True"},
-              "VERBOSE":  {"value": "True"}
+              "VERBOSE":  {"value": "True"},
+              "WAIT_TIME":  {"value": "1"}
             },
             "settings": {
               "image": "${MODULES.CameraCapture.arm32v7}",
@@ -87,13 +88,13 @@
               }
             }
           },
-          "image-classifier-service": {
+          "object-detection-service": {
             "version": "1.0",
             "type": "docker",
             "status": "running",
             "restartPolicy": "always",
             "settings": {
-              "image": "${MODULES.ImageClassifierService.arm32v7}",
+              "image": "${MODULES.ObjectDetectionService.arm32v7}",
               "createOptions": ""
             }
           }

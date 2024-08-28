@@ -7,6 +7,9 @@ import random
 import sys
 import time
 from dotenv import load_dotenv
+import logging
+from logging_config import setup_logging
+from Helpers import Helper
 
 #import iothub_client
 # pylint: disable=E0611
@@ -14,6 +17,11 @@ from dotenv import load_dotenv
 #from iothub_client import (IoTHubModuleClient, IoTHubClientError, IoTHubError,
 #                           IoTHubMessage, IoTHubMessageDispositionResult,
 #                           IoTHubTransportProvider)
+
+# Ensure logging is configured
+# This line initializes logging configuration
+setup_logging()
+logger = logging.getLogger(__name__)
 
 from azure.iot.device import IoTHubModuleClient, Message
 
@@ -72,6 +80,7 @@ def main(
         resizeHeight=0,
         cloudResizeWidth=0,
         cloudResizeHeight=0,
+        waitTime=3,
         annotate=False
 ):
     '''
@@ -89,14 +98,15 @@ def main(
     :param bool loopVideo: when reading from a video file, it will loop this video. True by default. Optional.
     :param bool convertToGray: convert to gray before sending to external service for processing. False by default. Optional.
     :param int resizeWidth: resize frame width before sending to external service for processing. Does not resize by default (0). Optional.
-    :param int resizeHeight: resize frame width before sending to external service for processing. Does not resize by default (0). Optional.ion(
+    :param int resizeHeight: resize frame width before sending to external service for processing. Does not resize by default (0). Optional.
     :param int cloudResizeWidth: resize frame width before sending to cloud service for processing. Does not resize by default (0). Optional.
-    :param int cloudResizeHeight: resize frame width before sending to cloud service for processing. Does not resize by default (0). Optional.ion(
+    :param int cloudResizeHeight: resize frame width before sending to cloud service for processing. Does not resize by default (0). Optional.
+    :param int waitTime: wait time in seconds between processing frames - Used to manage cloud API costs. Optional.
     :param bool annotate: when showing the video in a window, it will annotate the frames with rectangles given by the image processing service. False by default. Optional. Rectangles should be passed in a json blob with a key containing the string rectangle, and a top left corner + bottom right corner or top left corner with width and height.
     '''
     try:
-        print("\nPython %s\n" % sys.version)
-        print("Camera Capture Azure IoT Edge Module. Press Ctrl-C to exit.")
+        logger.debug("Python %s", sys.version)
+        logger.info("Camera Capture Azure IoT Edge Module. Press Ctrl-C to exit.")
         try:
             global hubManager
             hubManager = HubManager(
@@ -108,51 +118,36 @@ def main(
                            cloudProcess, cloudProcessingEndpoint, cloudProcessingParams,
                            showVideo, verbose, loopVideo, convertToGray, 
                            resizeWidth, resizeHeight, cloudResizeWidth, cloudResizeHeight,
-                           annotate, send_to_Hub_callback) as cameraCapture:
+                           waitTime, annotate, send_to_Hub_callback) as cameraCapture:
             cameraCapture.start()
     except KeyboardInterrupt:
-        print("Camera capture module stopped")
-
-
-def __convertStringToBool(env):
-    if env in ['True', 'TRUE', '1', 'y', 'YES', 'Y', 'Yes']:
-        return True
-    elif env in ['False', 'FALSE', '0', 'n', 'NO', 'N', 'No']:
-        return False
-    else:
-        raise ValueError('Could not convert string to bool.')
-
+        logger.info("Camera capture module stopped")
 
 if __name__ == '__main__':
     load_dotenv()
 
     try:
         VIDEO_PATH = os.environ['VIDEO_PATH']
-        LOCAL_PROCESS = __convertStringToBool(os.getenv('LOCAL_PROCESS', 'False'))
+        LOCAL_PROCESS = Helper.convert_string_to_bool(os.getenv('LOCAL_PROCESS', 'False'))
         IMAGE_PROCESSING_ENDPOINT = os.getenv('IMAGE_PROCESSING_ENDPOINT', "")
         IMAGE_PROCESSING_PARAMS = os.getenv('IMAGE_PROCESSING_PARAMS', "")
-        CLOUD_PROCESS = __convertStringToBool(os.getenv('CLOUD_PROCESS', 'False'))
+        CLOUD_PROCESS = Helper.convert_string_to_bool(os.getenv('CLOUD_PROCESS', 'False'))
         CLOUD_PROCESSING_ENDPOINT = os.getenv('CLOUD_PROCESSING_ENDPOINT', "")
         CLOUD_PROCESSING_PARAMS = os.getenv('CLOUD_PROCESSING_PARAMS', "")
-        SHOW_VIDEO = __convertStringToBool(os.getenv('SHOW_VIDEO', 'False'))
-        VERBOSE = __convertStringToBool(os.getenv('VERBOSE', 'False'))
-        LOOP_VIDEO = __convertStringToBool(os.getenv('LOOP_VIDEO', 'True'))
-        CONVERT_TO_GRAY = __convertStringToBool(
-            os.getenv('CONVERT_TO_GRAY', 'False'))
+        SHOW_VIDEO = Helper.convert_string_to_bool(os.getenv('SHOW_VIDEO', 'False'))
+        VERBOSE = Helper.convert_string_to_bool(os.getenv('VERBOSE', 'False'))
+        LOOP_VIDEO = Helper.convert_string_to_bool(os.getenv('LOOP_VIDEO', 'True'))
+        CONVERT_TO_GRAY = Helper.convert_string_to_bool(os.getenv('CONVERT_TO_GRAY', 'False'))
         RESIZE_WIDTH = int(os.getenv('RESIZE_WIDTH', 0))
         RESIZE_HEIGHT = int(os.getenv('RESIZE_HEIGHT', 0))
         CLOUD_RESIZE_WIDTH = int(os.getenv('CLOUD_RESIZE_WIDTH', 0))
         CLOUD_RESIZE_HEIGHT = int(os.getenv('CLOUD_RESIZE_HEIGHT', 0))
-        ANNOTATE = __convertStringToBool(os.getenv('ANNOTATE', 'False'))
-
-        print(f"IMAGE_PROCESSING_ENDPOINT: {IMAGE_PROCESSING_ENDPOINT}")
-        print(f"IMAGE_PROCESSING_PARAMS: {IMAGE_PROCESSING_PARAMS}")
-        print(f"CLOUD_PROCESSING_ENDPOINT: {CLOUD_PROCESSING_ENDPOINT}")
-        print(f"CLOUD_PROCESSING_PARAMS: {CLOUD_PROCESSING_PARAMS}")
+        WAIT_TIME = int(os.getenv('WAIT_TIME', 0))
+        ANNOTATE = Helper.convert_string_to_bool(os.getenv('ANNOTATE', 'False'))
 
     except ValueError as error:
         print(error)
         sys.exit(1)
 
     main(VIDEO_PATH, LOCAL_PROCESS, IMAGE_PROCESSING_ENDPOINT, IMAGE_PROCESSING_PARAMS, CLOUD_PROCESS, CLOUD_PROCESSING_ENDPOINT, CLOUD_PROCESSING_PARAMS, SHOW_VIDEO,
-         VERBOSE, LOOP_VIDEO, CONVERT_TO_GRAY, RESIZE_WIDTH, RESIZE_HEIGHT, CLOUD_RESIZE_WIDTH, CLOUD_RESIZE_HEIGHT, ANNOTATE)
+         VERBOSE, LOOP_VIDEO, CONVERT_TO_GRAY, RESIZE_WIDTH, RESIZE_HEIGHT, CLOUD_RESIZE_WIDTH, CLOUD_RESIZE_HEIGHT, WAIT_TIME, ANNOTATE)
