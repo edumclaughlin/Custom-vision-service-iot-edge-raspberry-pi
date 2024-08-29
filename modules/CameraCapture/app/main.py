@@ -76,6 +76,8 @@ def main(
         verbose=False,
         loopVideo=True,
         convertToGray=False,
+        captureWidth=0,
+        captureHeight=0,
         resizeWidth=0,
         resizeHeight=0,
         cloudResizeWidth=0,
@@ -97,6 +99,8 @@ def main(
     :param bool verbose: show detailed logs and perf timers. False by default. Optional.
     :param bool loopVideo: when reading from a video file, it will loop this video. True by default. Optional.
     :param bool convertToGray: convert to gray before sending to external service for processing. False by default. Optional.
+    :param int captureWidth: Resolution used to capture video frame. 1920 by default. Optional.
+    :param int captureHeight: Resolution used to capture video frame. 1080 by default. Optional.
     :param int resizeWidth: resize frame width before sending to external service for processing. Does not resize by default (0). Optional.
     :param int resizeHeight: resize frame width before sending to external service for processing. Does not resize by default (0). Optional.
     :param int cloudResizeWidth: resize frame width before sending to cloud service for processing. Does not resize by default (0). Optional.
@@ -117,7 +121,7 @@ def main(
         with CameraCapture(videoPath, localProcess, imageProcessingEndpoint, imageProcessingParams, 
                            cloudProcess, cloudProcessingEndpoint, cloudProcessingParams,
                            showVideo, verbose, loopVideo, convertToGray, 
-                           resizeWidth, resizeHeight, cloudResizeWidth, cloudResizeHeight,
+                           captureWidth, captureHeight, resizeWidth, resizeHeight, cloudResizeWidth, cloudResizeHeight,
                            waitTime, annotate, send_to_Hub_callback) as cameraCapture:
             cameraCapture.start()
     except KeyboardInterrupt:
@@ -138,6 +142,8 @@ if __name__ == '__main__':
         VERBOSE = Helper.convert_string_to_bool(os.getenv('VERBOSE', 'False'))
         LOOP_VIDEO = Helper.convert_string_to_bool(os.getenv('LOOP_VIDEO', 'True'))
         CONVERT_TO_GRAY = Helper.convert_string_to_bool(os.getenv('CONVERT_TO_GRAY', 'False'))
+        CAPTURE_WIDTH = int(os.getenv('CAPTURE_WIDTH', 0))
+        CAPTURE_HEIGHT = int(os.getenv('CAPTURE_HEIGHT', 0))
         RESIZE_WIDTH = int(os.getenv('RESIZE_WIDTH', 0))
         RESIZE_HEIGHT = int(os.getenv('RESIZE_HEIGHT', 0))
         CLOUD_RESIZE_WIDTH = int(os.getenv('CLOUD_RESIZE_WIDTH', 0))
@@ -150,4 +156,4 @@ if __name__ == '__main__':
         sys.exit(1)
 
     main(VIDEO_PATH, LOCAL_PROCESS, IMAGE_PROCESSING_ENDPOINT, IMAGE_PROCESSING_PARAMS, CLOUD_PROCESS, CLOUD_PROCESSING_ENDPOINT, CLOUD_PROCESSING_PARAMS, SHOW_VIDEO,
-         VERBOSE, LOOP_VIDEO, CONVERT_TO_GRAY, RESIZE_WIDTH, RESIZE_HEIGHT, CLOUD_RESIZE_WIDTH, CLOUD_RESIZE_HEIGHT, WAIT_TIME, ANNOTATE)
+         VERBOSE, LOOP_VIDEO, CONVERT_TO_GRAY, CAPTURE_WIDTH, CAPTURE_HEIGHT, RESIZE_WIDTH, RESIZE_HEIGHT, CLOUD_RESIZE_WIDTH, CLOUD_RESIZE_HEIGHT, WAIT_TIME, ANNOTATE)

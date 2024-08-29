@@ -9,7 +9,8 @@ from ObjectDetector import ObjectDetector
 from flask import Flask, request, jsonify
 
 # Imports for image procesing
-from PIL import Image
+import numpy as np
+import cv2
 
 app = Flask(__name__)
 
@@ -26,16 +27,27 @@ def index():
 @app.route('/image', methods=['POST'])
 def predict_image_handler(project=None, publishedName=None):
     try:
-        imageData = None
-        if ('imageData' in request.files):
-            imageData = request.files['imageData']
-        elif ('imageData' in request.form):
-            imageData = request.form['imageData']
-        else:
-            imageData = io.BytesIO(request.get_data())
+        # Check if the image data is in files (for multipart/form-data)
+        if 'imageData' in request.files:
+            image_file = request.files['imageData']
+            image_data = image_file.read()  # Read image data as bytes
 
-        img = Image.open(imageData)
+        # Check if the image data is in form (for form-urlencoded or raw)
+        elif 'imageData' in request.form:
+            image_data = request.form['imageData']
+            image_data = image_data.encode('utf-8')  # Convert string to bytes if necessary
+
+        else:
+            # Handle raw binary data sent directly to the endpoint
+            image_data = request.get_data()
+
+        # Decode the image from the raw bytes
+        npimg = np.frombuffer(image_data, np.uint8)
+        img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)  # Color image (BGR format)
+
+        # Perform object detection
         results = object_detector.detect_objects(img)
+        
         return jsonify(results)
     except Exception as e:
         print('EXCEPTION:', str(e))

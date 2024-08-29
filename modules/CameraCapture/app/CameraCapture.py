@@ -61,6 +61,8 @@ class CameraCapture(object):
             verbose = False,
             loopVideo = True,
             convertToGray = False,
+            captureWidth = 1920,
+            captureHeight = 1080,
             resizeWidth = 0,
             resizeHeight = 0,
             cloudResizeWidth = 0,
@@ -89,6 +91,8 @@ class CameraCapture(object):
         self.showVideo = showVideo
         self.verbose = verbose
         self.loopVideo = loopVideo
+        self.captureWidth = captureWidth
+        self.captureHeight = captureHeight
         self.convertToGray = convertToGray
         self.resizeWidth = resizeWidth
         self.resizeHeight = resizeHeight
@@ -136,6 +140,8 @@ class CameraCapture(object):
             logger.info("   - Cloud processing params: %s", json.dumps(self.cloudProcessingParams))
             logger.info("   - Show video: %s", str(self.showVideo))
             logger.info("   - Loop video: %s", str(self.loopVideo))
+            logger.info("   - Capture width: %s", str(self.captureWidth))
+            logger.info("   - Capture height: %s", str(self.captureHeight))
             logger.info("   - Convert to gray: %s", str(self.convertToGray))
             logger.info("   - Resize width: %s", str(self.resizeWidth))
             logger.info("   - Resize height: %s", str(self.resizeHeight))
@@ -148,7 +154,7 @@ class CameraCapture(object):
     def __enter__(self):
         #The VideoStream class always gives us the latest frame from the webcam. It uses another thread to read the frames.
         # The self.vs object uses a queue which you pop with self.vs.read()
-        self.vs = VideoStream(int(self.videoPath)).start()
+        self.vs = VideoStream(int(self.videoPath),3,self.captureWidth, self.captureHeight).start()
         time.sleep(1.0) #needed to load at least one frame into the VideoStream class
         self.capture = cv2.VideoCapture(int(self.videoPath))
         return self

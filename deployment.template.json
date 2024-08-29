@@ -48,8 +48,10 @@
             "restartPolicy": "always",
             "env": {
               "VIDEO_PATH": {"value": "0"},
-              "LOCAL_PROCESS":  {"value": "False"},
-              "IMAGE_PROCESSING_ENDPOINT":  {"value": "http://image-classifier-service:80/image"},
+              "CAPTURE_WIDTH": {"value": "1280"},
+              "CAPTURE_HEIGHT":  {"value": "720"},
+              "LOCAL_PROCESS":  {"value": "True"},
+              "IMAGE_PROCESSING_ENDPOINT":  {"value": "http://object-detection-service:80/image"},
               "CLOUD_PROCESS":  {"value": "False"},
               "CLOUD_PROCESSING_ENDPOINT":  {"value": "http://192.168.2.21:7071/api/AnalyzeImage/Azure"},
               "CONVERT_TO_GRAY":  {"value": "False"},

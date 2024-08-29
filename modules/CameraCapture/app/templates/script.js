@@ -171,10 +171,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     break;
                 
                 case 'edge':
-                    localEndpointInput.value = 'http://image-classifier-service:80/image';
+                    localEndpointInput.value = 'http://object-detection-service:80/image';
                     cloudEndpointInput.value = '';
-                    resizeWidthInput.value = '256'; // Use original image size
-                    resizeHeightInput.value = '256'; 
+                    resizeWidthInput.value = '1280'; // Use original image size
+                    resizeHeightInput.value = '720'; 
                     waitTimeInput.value = 0.1; // No costs
                     processLocallyCheckbox.checked = true;
                     processRemotelyCheckbox.checked = false;

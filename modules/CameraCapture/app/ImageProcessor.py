@@ -124,17 +124,7 @@ class ImageProcessor:
                     if response == None:
                         logger.error("Invalid response received")
 
-            # Determine which model responded and perform any annotation of the image
-            # if (model == 'Azure'):
-            #     image = self._annotate_image_azure_product_detection(image, json_response)
-
-                #     #forwarding outcome of local AI processing to the EdgeHub
-                #     if response != "[]" and self.sendToHubCallback is not None:
-                #         startSendingToEdgeHub = time.time()
-                #         self.sendToHubCallback(response)
-                #         if self.verbose:
-                #             print("Time to message from processing service to edgeHub: " + self.__displayTimeDifferenceInMs(time.time(), startSendingToEdgeHub))
-
+            image = self._annotate_image_tensorflow_lite(image, json_response)
 
             return image
 
@@ -142,6 +132,12 @@ class ImageProcessor:
         headers = {'Content-Type': 'application/octet-stream'}
         try:
             response = requests.post(self.parent.imageProcessingEndpoint, headers = headers, params = self.parent.imageProcessingParams, data = image)
+            try:
+                response_json = response.json()  # Try to parse the JSON
+                logger.info('Local Processing Response: %s', response_json)
+            except ValueError as e:  # If JSON decoding fails
+                logger.error('Failed to parse JSON response: %s', e)
+                logger.debug('Response content: %s', response.text) 
         except Exception as e:
             logger.exception('EXCEPTION')
             return None
@@ -152,7 +148,34 @@ class ImageProcessor:
             pass
 
         return response
-    
+
+    def _annotate_image_tensorflow_lite(self, image, json_response):
+        num_products_found = 0
+        threshold = 0.3
+
+        _MARGIN = 10  # pixels
+        _ROW_SIZE = 10  # pixels
+        _FONT_SIZE = 1
+        _FONT_THICKNESS = 1
+        _TEXT_COLOR = (0, 0, 255)  # red
+        _BOX_COLOR = (0, 255, 0) 
+#{'detections': [{'bounding_box': {'height': 329, 'origin_x': 993, 'origin_y': 375, 'width': 199}, 'categories': [{'category_name': 'book', 'display_name': '', 'index': 83, 'score': 0.4140625}]}, {'bounding_box': {'height': 302, 'origin_x': 955, 'origin_y': 393, 'width': 161}, 'categories': [{'category_name': 'book', 'display_name': '', 'index': 83, 'score': 0.39453125}]}, {'bounding_box': {'height': 272, 'origin_x': 995, 'origin_y': 7, 'width': 121}, 'categories': [{'category_name': 'book', 'display_name': '', 'index': 83, 'score': 0.37109375}]}]}
+        for detection in json_response['detections']:
+            l, t, w, h = detection['bounding_box']['origin_x'], detection['bounding_box']['origin_y'], detection['bounding_box']['width'], detection['bounding_box']['height']
+            cv2.rectangle(image, (l, t), (l + w, t + h), _BOX_COLOR, 2)
+
+            # draw label and score
+            category = detection['categories'][0]
+            category_name = category['category_name']
+            probability = round(category['score'], 2)
+            result_text = category_name + ' (' + str(probability) + ')'
+            text_location = (_MARGIN + l, _MARGIN + _ROW_SIZE + t)
+
+            cv2.putText(image, result_text, text_location, cv2.FONT_HERSHEY_PLAIN, _FONT_SIZE, _TEXT_COLOR, _FONT_THICKNESS)
+            num_products_found += 1
+
+        return image
+        
     def process_image(self, image):
         try:
             logger.debug("ImageProcessor: process_image : Start")
