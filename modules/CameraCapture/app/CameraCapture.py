@@ -124,10 +124,16 @@ class CameraCapture(object):
         self.display_processedFrame = None
 
         self.processor = ImageProcessor(self)
-
-        self.productsDetected = ""
         self.prompt = ""
+
+        self.localDetections = "No Local Detections"
+        self.remoteDetections = "No Remote Detections"
+        self.productsDetected = ""
         self.promptResponse = ""
+        self.personDetected = False
+
+        self.sendLocalDetectionsToHub = False
+        self.sendRemoteDetectionsToHub = False
 
         if self.verbose:
             logger.info("Initialising the camera capture with the following parameters: ")
@@ -205,9 +211,10 @@ class CameraCapture(object):
                     try:
                         self.processed_frame = self.processor.output_queue.get(block=False)
                         logger.debug(f"Output queue now has %d elements.", self.processor.output_queue.qsize())
-                        # Send any updated statess to connected web clients
+                        # Send any updated states to connected web clients
                         msg = {
-                            "products_detected": self.productsDetected,
+                            "local_detections": self.localDetections,
+                            "remote_detections": self.remoteDetections,
                             "prompt_response": self.promptResponse
                         }
                         json_string = json.dumps(msg, indent=4)  # `indent` is optional

@@ -14,92 +14,120 @@
     
     <!-- Main content area -->
     <main class="main-content">
-        <!-- Image Display Section -->
-        <div class="image-container">
-            <img id="currentImage" alt="Current Image">
-            <img id="processedImage" alt="Processed Image">
+        <!-- Tabs -->
+        <div class="tabs">
+            <div class="tab active" onclick="openTab('detectionsTab')">Detections</div>
+            <div class="tab" onclick="openTab('cameraTab')">Camera</div>
+            <div class="tab" onclick="openTab('parametersTab')">Parameters</div>
         </div>
 
-        <!-- Parameters Section -->
-        <div class="presets">
-            <h2>Parameters</h2>
-            <form id="presets-form" class="presets-form">
-                <!-- Presets Dropdown -->
-                <div class="form-group">
-                  <label for="presets">Presets:</label>
-                  <select id="presets" name="presets">
-                      <option value="llama-llava">Llama llava</option>
-                      <option value="gpt-4o">GPT 4o</option>
-                      <option value="product-detection">Product Detection</option>
-                      <option value="edge" selected>Edge</option>
-                  </select>
-                </div>
-            </form>
+        <!-- Detections Tab Content -->
+        <div id="detectionsTab" class="tab-content active">
+            <div class="image-container">
+                <img id="processedImage" alt="Processed Image">
+            </div>
+                <!-- Multi-line products-detected field -->
+                <div id="detections"></div>
+                <form id="detections-form" class="detections-form">
+                    <div class="multi-line-field">
+                        <h3 class="multiline-label">Local Detections</h2>
+                        <textarea id="local-detections" rows="2"></textarea>
+                    </div>                
+                    <div class="multi-line-field">
+                        <h3 class="multiline-label">Remote Detections</h2>
+                        <textarea id="remote-detections" rows="2"></textarea>
+                    </form>
+                </div>                
+            </div>                
         </div>
 
-        <div class="toggles">
-            <form id="toggles-form" class="toggles-form">
-                <div class="form-group checkbox-group">
-                  <input type="checkbox" id="convert-gray" name="convert-gray">
-                  <label for="convert-gray">Convert to Gray</label>
-                  <input type="checkbox" id="process-locally" name="process-locally">
-                  <label for="process-locally">Process Locally</label>
-                  <input type="checkbox" id="process-remotely" name="process-remotely">
-                  <label for="process-remotely">Process Remotely</label>
-                  <input type="checkbox" id="send-to-hub" name="send-to-hub">
-                  <label for="send-to-hub">Send Results to Hub</label>
-                </div>
-            </form>
+        <!-- Camera Tab Content -->
+        <div id="cameraTab" class="tab-content">
+            <div class="image-container">
+                <img id="currentImage" alt="Current Image">
+            </div>
         </div>
+        
+        <!-- Parameters Tab Content -->
+        <div id="parametersTab" class="tab-content">
+            <!-- Parameters Section -->
+            <div class="presets">
+                <h2>Parameters</h2>
+                <form id="presets-form" class="presets-form">
+                    <!-- Presets Dropdown -->
+                    <div class="form-group">
+                    <label for="presets">Presets:</label>
+                    <select id="presets" name="presets">
+                        <option value="llama-llava">Llama llava</option>
+                        <option value="gpt-4o">GPT 4o</option>
+                        <option value="product-detection">Product Detection</option>
+                        <option value="edge" selected>Edge</option>
+                    </select>
+                    </div>
+                </form>
+            </div>
 
-        <div class="parameters">
-          <form id="parameters-form" class="parameter-form">
-                <div class="form-group">
-                    <label for="local-endpoint">Local Processing Endpoint:</label>
-                    <input type="text" id="local-endpoint" name="local-endpoint" placeholder="Enter local endpoint">
+            <div class="toggles">
+                <form id="toggles-form" class="toggles-form">
+                    <div class="form-group checkbox-group">
+                    <input type="checkbox" id="convert-gray" name="convert-gray">
+                    <label for="convert-gray">Convert to Gray</label>
+                    <input type="checkbox" id="process-locally" name="process-locally">
+                    <label for="process-locally">Process Locally</label>
+                    <input type="checkbox" id="process-remotely" name="process-remotely">
+                    <label for="process-remotely">Process Remotely</label>
+                    <input type="checkbox" id="send-local-to-hub" name="send-local-to-hub">
+                    <label for="send-local-to-hub">Send local detections to hub</label>
+                    <input type="checkbox" id="send-remote-to-hub" name="send-remote-to-hub">
+                    <label for="send-remote-to-hub">Send remote detections to hub</label>
+                    </div>
+                </form>
+            </div>
+
+            <div class="parameters">
+            <form id="parameters-form" class="parameter-form">
+                    <div class="form-group">
+                        <label for="local-endpoint">Local Processing Endpoint:</label>
+                        <input type="text" id="local-endpoint" name="local-endpoint" placeholder="Enter local endpoint">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cloud-endpoint">Cloud Processing Endpoint:</label>
+                        <input type="text" id="cloud-endpoint" name="cloud-endpoint" placeholder="Enter cloud endpoint">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="resize-width">Resize Width:</label>
+                        <input type="number" id="resize-width" name="resize-width" min="1" placeholder="Width in pixels">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="resize-height">Resize Height:</label>
+                        <input type="number" id="resize-height" name="resize-height" min="1" placeholder="Height in pixels">
+                    </div>
+
+                    <div class="form-group">
+                    <label for="wait-time">Wait Time (secs):</label>
+                    <input type="number" id="wait-time" name="wait-time" min="1" placeholder="Wait time">
                 </div>
 
-                <div class="form-group">
-                    <label for="cloud-endpoint">Cloud Processing Endpoint:</label>
-                    <input type="text" id="cloud-endpoint" name="cloud-endpoint" placeholder="Enter cloud endpoint">
-                </div>
+                </form>
+            </div>
 
-                <div class="form-group">
-                    <label for="resize-width">Resize Width:</label>
-                    <input type="number" id="resize-width" name="resize-width" min="1" placeholder="Width in pixels">
-                </div>
+            <!-- Multi-line prompt, prompt-response field -->
+            <div class="multi-line-field">
+                <h3 class="multiline-label">Prompt</h2>
+                <textarea id="prompt" rows="4"></textarea>
+                <h3 class="multiline-label">Prompt Response</h2>
+                <textarea id="prompt-response" rows="4"></textarea>
+            </div>
 
-                <div class="form-group">
-                    <label for="resize-height">Resize Height:</label>
-                    <input type="number" id="resize-height" name="resize-height" min="1" placeholder="Height in pixels">
-                </div>
+            <!-- Send parameters to back-end -->
+            <div class="controls">
+                <button id="update-button">Update</button>
+            </div>
+        </div> <!-- Parameters Tab -->
 
-                <div class="form-group">
-                  <label for="wait-time">Wait Time (secs):</label>
-                  <input type="number" id="wait-time" name="wait-time" min="1" placeholder="Wait time">
-              </div>
-
-            </form>
-        </div>
-
-        <!-- Multi-line prompt, prompt-response field -->
-        <!-- Multi-line products-detected field -->
-        <div class="multi-line-field">
-          <h3 class="multiline-label">Products Detected</h2>
-          <textarea id="products-detected" rows="2"></textarea>
-      </div>
-
-      <div class="multi-line-field">
-            <h3 class="multiline-label">Prompt</h2>
-            <textarea id="prompt" rows="4"></textarea>
-            <h3 class="multiline-label">Prompt Response</h2>
-            <textarea id="prompt-response" rows="4"></textarea>
-        </div>
-
-        <!-- Send parameters to back-end -->
-        <div class="controls">
-            <button id="update-button">Update</button>
-        </div>
     </main>
     <script src="script.js"></script>
 </body>

@@ -38,10 +38,9 @@ class ImageProcessor:
                     json_response = response.json()
                     logger.debug("%s",json.dumps(json_response, indent=4))  # Pretty-print the JSON
                     model = json_response['model']
-                    product_count = json_response['product count']
-                    prompt_response = json_response['prompt response']
-                    json_response = json_response['json response']
-
+                    self.parent.productCount = json_response['product count']
+                    self.parent.promptResponse = json_response['prompt response']
+                    self.parent.remoteDetections = json_response['json response']
 
                 except json.JSONDecodeError:
                     logger.exception("EXCEPTION")
@@ -54,12 +53,13 @@ class ImageProcessor:
             if (model == 'Azure'):
                 image = self._annotate_image_azure_product_detection(image, json_response)
 
-                #     #forwarding outcome of remote AI processing to the EdgeHub
-                #     if response != "[]" and self.sendToHubCallback is not None:
-                #         startSendingToEdgeHub = time.time()
-                #         self.sendToHubCallback(response)
-                #         if self.verbose:
-                #             print("Time to message from processing service to edgeHub: " + self.__displayTimeDifferenceInMs(time.time(), startSendingToEdgeHub))
+            #forwarding outcome of remote AI processing to the EdgeHub
+            # TODO: Introduce throttling of these messages (Only send when scheduled e.g. 10 mins from last reading)
+            if self.parent.sendLocalDetectionsToHub == True and self.parent.sendToHubCallback is not None:
+                logger.info("Send remote detections to hub")
+                startSendingToEdgeHub = time.time()
+                msg = json.dumps(json_response)
+                self.parent.sendToHubCallback(msg)
 
             return image
         
@@ -78,7 +78,6 @@ class ImageProcessor:
 
         return response
     
-
     def _annotate_image_azure_product_detection(self, image, json_response):
         num_products_found = 0
         threshold = 0.3
@@ -115,7 +114,15 @@ class ImageProcessor:
             if response and isinstance(response, requests.Response) and response.status_code == 200:
                 try:
                     json_response = response.json()
-                    logger.debug("%s",json.dumps(json_response, indent=4))  # Pretty-print the JSON
+                    formatted_response = json.dumps({
+                        'model': 'local',
+                        'product count': -1, 
+                        'prompt response': '', 
+                        'json response': json_response 
+                    })
+                    msg = json.dumps(formatted_response, indent=4)
+                    logger.debug("%s",msg)  # Pretty-print the JSON
+                    self.parent.localDetections = json_response
 
                 except json.JSONDecodeError:
                     logger.exception("EXCEPTION")
@@ -125,6 +132,12 @@ class ImageProcessor:
                         logger.error("Invalid response received")
 
             image = self._annotate_image_tensorflow_lite(image, json_response)
+
+            # Forwarding outcome of local AI processing to the EdgeHub
+            # TODO: Introduce throttling of these messages (Only send when scheduled e.g. 10 mins from last reading)
+            if self.parent.sendLocalDetectionsToHub == True and self.parent.sendToHubCallback is not None:
+                logger.info("Send local detections to hub")
+                self.parent.sendToHubCallback(msg)
 
             return image
 
@@ -150,16 +163,16 @@ class ImageProcessor:
         return response
 
     def _annotate_image_tensorflow_lite(self, image, json_response):
-        num_products_found = 0
-        threshold = 0.3
-
         _MARGIN = 10  # pixels
         _ROW_SIZE = 10  # pixels
         _FONT_SIZE = 1
         _FONT_THICKNESS = 1
         _TEXT_COLOR = (0, 0, 255)  # red
         _BOX_COLOR = (0, 255, 0) 
-#{'detections': [{'bounding_box': {'height': 329, 'origin_x': 993, 'origin_y': 375, 'width': 199}, 'categories': [{'category_name': 'book', 'display_name': '', 'index': 83, 'score': 0.4140625}]}, {'bounding_box': {'height': 302, 'origin_x': 955, 'origin_y': 393, 'width': 161}, 'categories': [{'category_name': 'book', 'display_name': '', 'index': 83, 'score': 0.39453125}]}, {'bounding_box': {'height': 272, 'origin_x': 995, 'origin_y': 7, 'width': 121}, 'categories': [{'category_name': 'book', 'display_name': '', 'index': 83, 'score': 0.37109375}]}]}
+
+        self.parent.personDetected = False
+        # Response in in the form
+        #{'detections': [{'bounding_box': {'height': 329, 'origin_x': 993, 'origin_y': 375, 'width': 199}, 'categories': [{'category_name': 'book', 'display_name': '', 'index': 83, 'score': 0.4140625}]}, {'bounding_box': {'height': 302, 'origin_x': 955, 'origin_y': 393, 'width': 161}, 'categories': [{'category_name': 'book', 'display_name': '', 'index': 83, 'score': 0.39453125}]}, {'bounding_box': {'height': 272, 'origin_x': 995, 'origin_y': 7, 'width': 121}, 'categories': [{'category_name': 'book', 'display_name': '', 'index': 83, 'score': 0.37109375}]}]}
         for detection in json_response['detections']:
             l, t, w, h = detection['bounding_box']['origin_x'], detection['bounding_box']['origin_y'], detection['bounding_box']['width'], detection['bounding_box']['height']
             cv2.rectangle(image, (l, t), (l + w, t + h), _BOX_COLOR, 2)
@@ -172,7 +185,10 @@ class ImageProcessor:
             text_location = (_MARGIN + l, _MARGIN + _ROW_SIZE + t)
 
             cv2.putText(image, result_text, text_location, cv2.FONT_HERSHEY_PLAIN, _FONT_SIZE, _TEXT_COLOR, _FONT_THICKNESS)
-            num_products_found += 1
+
+            if category_name == 'person':
+                self.parent.personDetected = True
+                logger.info("Person Detected")
 
         return image
         
@@ -192,6 +208,7 @@ class ImageProcessor:
                 logger.info(f"Convert to Gray")
                 processed_image = cv2.cvtColor(processed_image, cv2.COLOR_BGR2GRAY)
 
+            # TODO: Introduce additional input checking for values sent blank from Web UI
             if (self.parent.resizeWidth != 0 or self.parent.resizeHeight != 0):
                 logger.info(f"Resize image Height:%s Width:%s", self.parent.resizeWidth, self.parent.resizeHeight)
                 processed_image = cv2.resize(processed_image, (int(self.parent.resizeWidth), int(self.parent.resizeHeight)))
@@ -206,7 +223,8 @@ class ImageProcessor:
             # ----------------------------------------------------
             # Apply AI analysis in the cloud
             # ----------------------------------------------------
-            if self.parent.cloudProcess == True:
+            # Only send images to the cloud that contain no images of persons
+            if self.parent.cloudProcess == True and self.parent.personDetected == False:
                 logger.info(f"Cloud Process")
                 processed_image = self._process_in_cloud(processed_image)
 

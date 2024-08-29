@@ -39,7 +39,8 @@ class Handler_messages(tornado.websocket.WebSocketHandler):
         self.parent.resizeHeight = json_response.get('resizeHeight','')
         self.parent.resizeWidth = json_response.get('resizeWidth','')
         self.parent.convertToGray = json_response.get('convertGray', False)
-        # self.parent.sendToHub = json_response.get('sendToHub', False)
+        self.parent.sendLocalDetectionsToHub = json_response.get('sendLocalToHub', False)
+        self.parent.sendRemoteDetectionsToHub = json_response.get('sendRemoteToHub', False)
 
     def on_close(self):
         Handler_messages.clients.remove(self)

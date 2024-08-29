@@ -16,33 +16,29 @@ ws.onmessage = function(event) {
     const data = JSON.parse(event.data);
 
     // Update the form fields with the values from the JSON data
-    const productsDetectedField = document.getElementById('products-detected');
+    const localDetectionsField = document.getElementById('local-detections');
+    const remoteDetectionsField = document.getElementById('remote-detections');
     const promptResponseField = document.getElementById('prompt-response');
 
-    if (data.products_found !== undefined) {
-        console.log(`Products Found`);
-        productsDetectedField.value = data.products_found;
-    }
+    // If the data for each field is a JSON object or array, convert it to a string
+    localDetectionsField.value = data.local_detections !== undefined
+        ? (typeof data.local_detections === 'object' 
+            ? JSON.stringify(data.local_detections, null, 2) 
+            : data.local_detections)
+        : 'No local detections'; // Provide a default value if undefined
 
-    if (data.prompt_response !== undefined) {
-        promptResponseField.value = data.prompt_response;
-    }
+    remoteDetectionsField.value = data.remote_detections !== undefined
+        ? (typeof data.remote_detections === 'object' 
+            ? JSON.stringify(data.remote_detections, null, 2) 
+            : data.remote_detections)
+        : 'No remote detections'; // Provide a default value if undefined
+
+    promptResponseField.value = data.prompt_response !== undefined
+        ? (typeof data.prompt_response === 'object' 
+            ? JSON.stringify(data.prompt_response, null, 2) 
+            : data.prompt_response)
+        : 'No prompt response'; // Provide a default value if undefined
 };
-
-// // Once an image has been refreshed this code will fire and request another 
-// currentimg.onload = function() {
-//   ws.send("next");
-// }
-
-// Function to send a message to the server with the requested image frame
-// function sendWs(msgType) {
-//   if (ws.readyState === WebSocket.OPEN) {
-//     ws.send(JSON.stringify({ type: msgType }));
-//   } else {
-//     console.error("WebSocket connection is closed.");
-//   }
-// }
-
 
 //Establish WebSocket connection for the current images
 var currentImageSocket = new WebSocket("ws://" + location.host + "/currentimage");
@@ -114,7 +110,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const convertGrayCheckbox = document.getElementById('convert-gray');
     const processLocallyCheckbox = document.getElementById('process-locally');
     const processRemotelyCheckbox = document.getElementById('process-remotely');
-    const sendToHubCheckbox = document.getElementById('send-to-hub');
+    const sendLocalToHubCheckbox = document.getElementById('send-local-to-hub');
+    const sendRemoteToHubCheckbox = document.getElementById('send-remote-to-hub');
 
     // Check if any of the elements are not found
     if (!presetsDropdown) console.error('Element with ID "presets" not found.');
@@ -126,7 +123,8 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!convertGrayCheckbox) console.error('Element with ID "convert-gray" not found.');
     if (!processLocallyCheckbox) console.error('Element with ID "process-locally" not found.');
     if (!processRemotelyCheckbox) console.error('Element with ID "process-remotely" not found.');
-    if (!sendToHubCheckbox) console.error('Element with ID "send-to-hub" not found.');
+    if (!sendLocalToHubCheckbox) console.error('Element with ID "send-local-to-hub" not found.');
+    if (!sendRemoteToHubCheckbox) console.error('Element with ID "send-remote-to-hub" not found.');
 
     if (presetsDropdown) {
         presetsDropdown.addEventListener('change', function () {
@@ -143,7 +141,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     convertGrayCheckbox.checked = false;
                     processLocallyCheckbox.checked = false;
                     processRemotelyCheckbox.checked = true;
-                    sendToHubCheckbox.checked = false;
+                    sendLocalToHubCheckbox.checked = false;
+                    sendRemoteToHubCheckbox.checked = false;
                     break;
                 
                 case 'gpt-4o':
@@ -155,7 +154,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     convertGrayCheckbox.checked = false;
                     processLocallyCheckbox.checked = true;
                     processRemotelyCheckbox.checked = false;
-                    sendToHubCheckbox.checked = false;
+                    sendLocalToHubCheckbox.checked = false;
+                    sendRemoteToHubCheckbox.checked = false;
+
                     break;
                 
                 case 'product-detection':
@@ -167,7 +168,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     convertGrayCheckbox.checked = false;
                     processLocallyCheckbox.checked = false;
                     processRemotelyCheckbox.checked = true;
-                    sendToHubCheckbox.checked = false;
+                    sendLocalToHubCheckbox.checked = false;
+                    sendRemoteToHubCheckbox.checked = false;
+
                     break;
                 
                 case 'edge':
@@ -178,7 +181,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     waitTimeInput.value = 0.1; // No costs
                     processLocallyCheckbox.checked = true;
                     processRemotelyCheckbox.checked = false;
-                    sendToHubCheckbox.checked = false;
+                    sendLocalToHubCheckbox.checked = false;
+                    sendRemoteToHubCheckbox.checked = false;
+
                     break;
             }
         });
@@ -204,7 +209,8 @@ document.addEventListener('DOMContentLoaded', function () {
             convertGray: convertGrayCheckbox.checked,
             processLocally: processLocallyCheckbox.checked,
             processRemotely: processRemotelyCheckbox.checked,
-            sendToHub: sendToHubCheckbox.checked
+            sendLocalToHub: sendLocalToHubCheckbox.checked,
+            sendRemoteToHub: sendRemoteToHubCheckbox.checked
         };
 
         const jsonData = JSON.stringify(formData, null, 2); // Pretty print with 2 spaces
@@ -212,3 +218,22 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
 });
+
+// Page tabs
+function openTab(tabId) {
+    // Hide all tab contents
+    var tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(function(tabContent) {
+        tabContent.classList.remove('active');
+    });
+
+    // Remove active class from all tabs
+    var tabs = document.querySelectorAll('.tab');
+    tabs.forEach(function(tab) {
+        tab.classList.remove('active');
+    });
+
+    // Show the selected tab and set it as active
+    document.getElementById(tabId).classList.add('active');
+    event.currentTarget.classList.add('active');
+}

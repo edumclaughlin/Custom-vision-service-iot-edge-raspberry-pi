@@ -9,17 +9,18 @@ body {
 .brand-header {
   background-color: #ab1827; /* Red background */
   color: #fff; /* White text */
-  padding: 20px;
+  padding: 10px;
   text-align: center;
 }
 
 .logo-image {
-  height: 100px;
+  height: 80px;
   vertical-align: middle;
 }
 
 h1 {
   margin: 0;
+  font-size: medium;
 }
 
 /* Main content styles */
@@ -27,6 +28,17 @@ h1 {
   padding: 20px;
   background-color: #ab1827; /* Red background */
   color: #fff; /* White text */
+}
+
+/* Detections Section */
+.detections {
+  margin-bottom: 20px;
+}
+
+.detections-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(500px, 1fr)); /* Responsive columns */
+  gap: 20px;
 }
 
 /* Parameters Section */
@@ -151,3 +163,36 @@ button {
 button:hover {
   background-color: #410309; /* Darker red on hover */
 }
+
+/* Styles for the tabs */
+.tab {
+  display: inline-block;
+  margin-right: 10px;
+  padding: 10px;
+  cursor: pointer;
+  background-color: #ab1827; /* Red background for inactive tabs */
+  color: #fff; /* White text for inactive tabs */
+  border: 1px solid #ccc;
+  border-bottom: none;
+  font-weight: normal; /* Normal text for inactive tabs */
+}
+
+.tab.active {
+  background-color: #8b141f; /* Darker red background for active tab */
+  color: #fff; /* White text for active tab */
+  font-weight: bold; /* Bold text for active tab */
+  border: 1px solid #ccc;
+  border-bottom: 1px solid #fff;
+}
+
+.tab-content {
+  display: none;
+  padding: 10px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+}
+
+.tab-content.active {
+  display: block;
+}
+
