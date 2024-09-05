@@ -51,11 +51,12 @@ class ImageProcessor:
 
             # Determine which model responded and perform any annotation of the image
             if (model == 'Azure'):
-                image = self._annotate_image_azure_product_detection(image, json_response)
+                logger.info("Annotate Azure Product Detections")
+                image = self._annotate_image_azure_product_detection(image, self.parent.remoteDetections)
 
             #forwarding outcome of remote AI processing to the EdgeHub
             # TODO: Introduce throttling of these messages (Only send when scheduled e.g. 10 mins from last reading)
-            if self.parent.sendLocalDetectionsToHub == True and self.parent.sendToHubCallback is not None:
+            if self.parent.sendRemoteDetectionsToHub == True and self.parent.sendToHubCallback is not None:
                 logger.info("Send remote detections to hub")
                 startSendingToEdgeHub = time.time()
                 msg = json.dumps(json_response)
@@ -79,22 +80,25 @@ class ImageProcessor:
         return response
     
     def _annotate_image_azure_product_detection(self, image, json_response):
+        # Response in the form
+        # {'imageMetadata': {'width': 1280, 'height': 720}, 'products': [{'id': '1', 'boundingBox': {'x': 900, 'y': 0, 'w': 158, 'h': 286}, 'tags': [{'name': 'product', 'confidence': 0.7352957725524902}]}, {'id': '2', 'boundingBox': {'x': 1220, 'y': 0, 'w': 57, 'h': 273}, 'tags': [{'name': 'product', 'confidence': 0.6888278722763062}]}, {'id': '3', 'boundingBox': {'x': 650, 'y': 199, 'w': 96, 'h': 89}, 'tags': [{'name': 'product', 'confidence': 0.6873872876167297}]}, {'id': '4', 'boundingBox': {'x': 1172, 'y': 0, 'w': 56, 'h': 273}, 'tags': [{'name': 'product', 'confidence': 0.6642954349517822}]}, {'id': '5', 'boundingBox': {'x': 1098, 'y': 0, 'w': 72, 'h': 276}, 'tags': [{'name': 'product', 'confidence': 0.6248446106910706}]}, {'id': '6', 'boundingBox': {'x': 967, 'y': 382, 'w': 214, 'h': 313}, 'tags': [{'name': 'product', 'confidence': 0.5721163153648376}]}, {'id': '7', 'boundingBox': {'x': 1173, 'y': 432, 'w': 81, 'h': 247}, 'tags': [{'name': 'product', 'confidence': 0.46560630202293396}]}, {'id': '8', 'boundingBox': {'x': 1047, 'y': 4, 'w': 56, 'h': 274}, 'tags': [{'name': 'product', 'confidence': 0.45639175176620483}]}, {'id': '10', 'boundingBox': {'x': 767, 'y': 515, 'w': 172, 'h': 131}, 'tags': [{'name': 'product', 'confidence': 0.26803919672966003}]}], 'gaps': [{'id': '9', 'boundingBox': {'x': 743, 'y': 5, 'w': 161, 'h': 302}, 'tags': [{'name': 'gap', 'confidence': 0.40706244111061096}]}]}
         num_products_found = 0
         threshold = 0.3
         for product in json_response['products']:
             if product['tags'][0]['confidence'] > threshold:
                 l, t, w, h = product['boundingBox']['x'], product['boundingBox']['y'], product['boundingBox']['w'], product['boundingBox']['h']
-                cv2.rectangle(image, (l, t), (l + w, t + h), (0, 255, 0), 2)
-                # For better visualization, only show the first 15 characters of the label
-                cv2.putText(image, product['tags'][0]['name'][0:15], (l, t - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1, cv2.LINE_AA)
+                if (self.parent.showRemoteDetections == True):
+                    cv2.rectangle(image, (l, t), (l + w, t + h), (0, 255, 0), 2)
+                    cv2.putText(image, product['tags'][0]['name'][0:15], (l, t - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1, cv2.LINE_AA)
                 num_products_found += 1
 
         # Loop over the gaps and draw rectangles for each one
         for product in json_response['gaps']:
             if product['tags'][0]['confidence'] > threshold:
                 l, t, w, h = product['boundingBox']['x'], product['boundingBox']['y'], product['boundingBox']['w'], product['boundingBox']['h']
-                cv2.rectangle(image, (l, t), (l + w, t + h), (255, 0, 0), 2)
-                cv2.putText(image, 'gap', (l, t - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 0, 0), 1, cv2.LINE_AA)
+                if (self.parent.showRemoteDetections == True):
+                    cv2.rectangle(image, (l, t), (l + w, t + h), (255, 0, 0), 2)
+                    cv2.putText(image, 'gap', (l, t - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 0, 0), 1, cv2.LINE_AA)
 
         self.parent.productsDetected = str(num_products_found)
         logger.info("Products Detected: %d", num_products_found)
@@ -174,17 +178,17 @@ class ImageProcessor:
         # Response in in the form
         #{'detections': [{'bounding_box': {'height': 329, 'origin_x': 993, 'origin_y': 375, 'width': 199}, 'categories': [{'category_name': 'book', 'display_name': '', 'index': 83, 'score': 0.4140625}]}, {'bounding_box': {'height': 302, 'origin_x': 955, 'origin_y': 393, 'width': 161}, 'categories': [{'category_name': 'book', 'display_name': '', 'index': 83, 'score': 0.39453125}]}, {'bounding_box': {'height': 272, 'origin_x': 995, 'origin_y': 7, 'width': 121}, 'categories': [{'category_name': 'book', 'display_name': '', 'index': 83, 'score': 0.37109375}]}]}
         for detection in json_response['detections']:
-            l, t, w, h = detection['bounding_box']['origin_x'], detection['bounding_box']['origin_y'], detection['bounding_box']['width'], detection['bounding_box']['height']
-            cv2.rectangle(image, (l, t), (l + w, t + h), _BOX_COLOR, 2)
-
             # draw label and score
+            l, t, w, h = detection['bounding_box']['origin_x'], detection['bounding_box']['origin_y'], detection['bounding_box']['width'], detection['bounding_box']['height']
             category = detection['categories'][0]
             category_name = category['category_name']
             probability = round(category['score'], 2)
             result_text = category_name + ' (' + str(probability) + ')'
             text_location = (_MARGIN + l, _MARGIN + _ROW_SIZE + t)
 
-            cv2.putText(image, result_text, text_location, cv2.FONT_HERSHEY_PLAIN, _FONT_SIZE, _TEXT_COLOR, _FONT_THICKNESS)
+            if (self.parent.showLocalDetections == True) or (category_name == 'person'):
+                cv2.rectangle(image, (l, t), (l + w, t + h), _BOX_COLOR, 2)
+                cv2.putText(image, result_text, text_location, cv2.FONT_HERSHEY_PLAIN, _FONT_SIZE, _TEXT_COLOR, _FONT_THICKNESS)
 
             if category_name == 'person':
                 self.parent.personDetected = True
@@ -207,6 +211,16 @@ class ImageProcessor:
             if self.parent.convertToGray == True:
                 logger.info(f"Convert to Gray")
                 processed_image = cv2.cvtColor(processed_image, cv2.COLOR_BGR2GRAY)
+
+            # Perform image rectification
+            if (self.parent.performRectification == True):
+                processed_image = Helper.unwarp_perspective(processed_image,
+                                        [(self.parent.rectificationTopLeftX, self.parent.rectificationTopLeftY),
+                                            (self.parent.rectificationTopRightX, self.parent.rectificationTopRightY),
+                                            (self.parent.rectificationBottomLeftX, self.parent.rectificationBottomLeftY),
+                                            (self.parent.rectificationBottomRightX, self.parent.rectificationBottomRightY)],
+                                        [(0,0),(self.parent.rectificationBottomLeftX,0),(0,self.parent.rectificationBottomRightY),(self.parent.rectificationBottomLeftX,self.parent.rectificationBottomRightY)]
+                )
 
             # TODO: Introduce additional input checking for values sent blank from Web UI
             if (self.parent.resizeWidth != 0 or self.parent.resizeHeight != 0):

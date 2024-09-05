@@ -18,13 +18,14 @@ logger = logging.getLogger(__name__)
 
 # This class reads all the video frames in a separate thread and always has the keeps only the latest frame in its queue to be grabbed by another thread
 class VideoStream(object):
-    def __init__(self, path, queueSize=3, CaptureWidth=1080, CaptureHeight=1920):
+    def __init__(self, path, queueSize=10, CaptureWidth=1080, CaptureHeight=1920):
         self.stream = cv2.VideoCapture(path)
         self.stopped = False
         self.Q = Queue(maxsize=queueSize)
-        # Should I cask camera to capture in a higher resolution is possible?
+        # Should I cask camera to capture in a specified resolution if possible
         self.stream.set(cv2.CAP_PROP_FRAME_WIDTH, CaptureWidth)
         self.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, CaptureHeight)
+        self.stream.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 2000) # Set timeout for frame to 2 seconds
 
     def start(self):
         # start a thread to read frames from the video stream
@@ -40,9 +41,15 @@ class VideoStream(object):
                     return
 
                 if not self.Q.full():
-                    (grabbed, frame) = self.stream.read()
-
-                    self.Q.put(frame)
+                    if self.stream.isOpened():
+                        (grabbed, frame) = self.stream.read()
+                        if not grabbed or frame is None or frame.size == 0:
+                            logger.info("Failed to capture a frame or the frame is empty.")
+                        else:
+                            logger.debug("Captured a valid frame.")
+                            self.Q.put(frame)
+                    else:
+                        logger.info("The video capture object could not be opened.")
 
                     # Clean the queue to keep only the latest frame
                     while self.Q.qsize() > 1:

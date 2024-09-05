@@ -1,11 +1,9 @@
 # Use a suitable ARM base image for Raspberry Pi
 FROM balenalib/raspberrypi3-debian:latest
 
-# Enforces cross-compilation through Quemu
-RUN [ "cross-build-start" ]
-
 # Update system and install required system packages including Python, pip, gcc, g++, cmake, and ninja
-RUN apt-get update && apt-get install -y \
+RUN apt-get update
+RUN apt-get install -y \
     python3 \
     python3-pip \
     gcc \
@@ -37,12 +35,9 @@ RUN pip3 install --no-cache-dir --index-url https://pypi.org/simple -r requireme
 COPY app /app
 WORKDIR /app
 
-RUN [ "cross-build-end" ]  
-
-# Copy all .tflite files from the root directory into the /app directory
-COPY *.tflite /app/
+# Expose the port
+EXPOSE 5012
 
 # Set the command to run your application
 CMD ["python3", "./app.py"]
-
 

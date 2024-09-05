@@ -5,7 +5,7 @@ var ws = new WebSocket("ws://" + location.host + "/stream");
 
 ws.onopen = function() {
     console.log("connection was established");
-    // ws.send("next");
+    dispatchState()
 };
 
 // Any server-side updates are notified via a json object 
@@ -100,31 +100,73 @@ processedImageSocket.onopen = function() {
 //   ws.send("next");
 // }
 
+var presetsDropdown = document.getElementById('presets');
+var localEndpointInput = document.getElementById('local-endpoint');
+var cloudEndpointInput = document.getElementById('cloud-endpoint');
+var resizeWidthInput = document.getElementById('resize-width');
+var resizeHeightInput = document.getElementById('resize-height');
+var waitTimeInput = document.getElementById('wait-time');
+var processLocallyCheckbox = document.getElementById('process-locally');
+var processRemotelyCheckbox = document.getElementById('process-remotely');
+var sendLocalToHubCheckbox = document.getElementById('send-local-to-hub');
+var sendRemoteToHubCheckbox = document.getElementById('send-remote-to-hub');
+var showLocalDetections = document.getElementById('show-local-detections');
+var showRemoteDetections = document.getElementById('show-remote-detections');
+
+var convertToGrayCheckbox = document.getElementById('convert-gray');
+var performRectificationCheckbox = document.getElementById('perform-rectification');
+var removeBackgroundCheckbox = document.getElementById('remove-background');
+var rectificationTopLeftX = document.getElementById('rectification-topleftx'); 
+var rectificationTopLeftY = document.getElementById('rectification-toplefty'); 
+var rectificationTopRightX = document.getElementById('rectification-toprightx'); 
+var rectificationTopRightY = document.getElementById('rectification-toprighty'); 
+var rectificationBottomLeftX = document.getElementById('rectification-bottomleftx'); 
+var rectificationBottomLeftY = document.getElementById('rectification-bottomlefty'); 
+var rectificationBottomRightX = document.getElementById('rectification-bottomrightx'); 
+var rectificationBottomRightY = document.getElementById('rectification-bottomrighty'); 
+
 document.addEventListener('DOMContentLoaded', function () {
-    const presetsDropdown = document.getElementById('presets');
-    const localEndpointInput = document.getElementById('local-endpoint');
-    const cloudEndpointInput = document.getElementById('cloud-endpoint');
-    const resizeWidthInput = document.getElementById('resize-width');
-    const resizeHeightInput = document.getElementById('resize-height');
-    const waitTimeInput = document.getElementById('wait-time');
-    const convertGrayCheckbox = document.getElementById('convert-gray');
-    const processLocallyCheckbox = document.getElementById('process-locally');
-    const processRemotelyCheckbox = document.getElementById('process-remotely');
-    const sendLocalToHubCheckbox = document.getElementById('send-local-to-hub');
-    const sendRemoteToHubCheckbox = document.getElementById('send-remote-to-hub');
+    
+    // Send an update to state when any value changes
+    const inputs = [
+        rectificationTopLeftX, rectificationTopLeftY,
+        rectificationTopRightX, rectificationTopRightY,
+        rectificationBottomLeftX, rectificationBottomLeftY,
+        rectificationBottomRightX, rectificationBottomRightY,
+        convertToGrayCheckbox, performRectificationCheckbox, removeBackgroundCheckbox
+    ];
+
+    // Add event listeners to each input element
+    inputs.forEach(input => {
+        input.addEventListener('change', dispatchState);  // use 'input' or 'change' if you prefer
+    });
 
     // Check if any of the elements are not found
-    if (!presetsDropdown) console.error('Element with ID "presets" not found.');
-    if (!localEndpointInput) console.error('Element with ID "local-endpoint" not found.');
-    if (!cloudEndpointInput) console.error('Element with ID "cloud-endpoint" not found.');
-    if (!resizeWidthInput) console.error('Element with ID "resize-width" not found.');
-    if (!waitTimeInput) console.error('Element with ID "wait-time" not found.');
-    if (!resizeHeightInput) console.error('Element with ID "resize-height" not found.');
-    if (!convertGrayCheckbox) console.error('Element with ID "convert-gray" not found.');
-    if (!processLocallyCheckbox) console.error('Element with ID "process-locally" not found.');
-    if (!processRemotelyCheckbox) console.error('Element with ID "process-remotely" not found.');
-    if (!sendLocalToHubCheckbox) console.error('Element with ID "send-local-to-hub" not found.');
-    if (!sendRemoteToHubCheckbox) console.error('Element with ID "send-remote-to-hub" not found.');
+    // if (!presetsDropdown) console.error('Element with ID "presets" not found.');
+    // if (!localEndpointInput) console.error('Element with ID "local-endpoint" not found.');
+    // if (!cloudEndpointInput) console.error('Element with ID "cloud-endpoint" not found.');
+    // if (!resizeWidthInput) console.error('Element with ID "resize-width" not found.');
+    // if (!waitTimeInput) console.error('Element with ID "wait-time" not found.');
+    // if (!resizeHeightInput) console.error('Element with ID "resize-height" not found.');
+    // if (!convertGrayCheckbox) console.error('Element with ID "convert-gray" not found.');
+    // if (!processLocallyCheckbox) console.error('Element with ID "process-locally" not found.');
+    // if (!processRemotelyCheckbox) console.error('Element with ID "process-remotely" not found.');
+    // if (!sendLocalToHubCheckbox) console.error('Element with ID "send-local-to-hub" not found.');
+    // if (!sendRemoteToHubCheckbox) console.error('Element with ID "send-remote-to-hub" not found.');
+    // if (!showLocalDetections) console.error('Element with ID "show-local-detections" not found.');
+    // if (!showRemoteDetections) console.error('Element with ID "show-remote-detections" not found.');
+
+    convertToGrayCheckbox.checked = false;
+    performRectificationCheckbox.checked = false;
+    removeBackgroundCheckbox.checked = false;
+    rectificationTopLeftX.value = 670; 
+    rectificationTopLeftY.value = 0; 
+    rectificationTopRightX.value = 1260; 
+    rectificationTopRightY.value = 0; 
+    rectificationBottomLeftX.value = 710; 
+    rectificationBottomLeftY.value = 720; 
+    rectificationBottomRightX.value = 1280; 
+    rectificationBottomRightY.value = 680; 
 
     if (presetsDropdown) {
         presetsDropdown.addEventListener('change', function () {
@@ -133,44 +175,45 @@ document.addEventListener('DOMContentLoaded', function () {
             // Set values based on the selected preset
             switch (selectedPreset) {
                 case 'llama-llava':
-                    localEndpointInput.value = 'http://image-classifier-service:80/image';
+                    localEndpointInput.value = 'http://object-detection-service:80/image';
                     cloudEndpointInput.value = 'http://192.168.2.21:7071/api/AnalyzeImage/llama';
                     resizeWidthInput.value = 672; // Must match model input-layer
                     resizeHeightInput.value = 672; 
                     waitTimeInput.value = 5; // No external hosts for such models
-                    convertGrayCheckbox.checked = false;
-                    processLocallyCheckbox.checked = false;
+                    processLocallyCheckbox.checked = true;
                     processRemotelyCheckbox.checked = true;
                     sendLocalToHubCheckbox.checked = false;
                     sendRemoteToHubCheckbox.checked = false;
+                    showLocalDetections.checked = false;
+                    showRemoteDetections.checked = false;
                     break;
                 
                 case 'gpt-4o':
-                    localEndpointInput.value = 'http://image-classifier-service:80/image';
+                    localEndpointInput.value = 'http://object-detection-service:80/image';
                     cloudEndpointInput.value = 'http://192.168.2.21:7071/api/AnalyzeImage/OpenAI';
                     resizeWidthInput.value = 672; 
                     resizeHeightInput.value = 672; 
                     waitTimeInput.value = 3; // Costs are high for these models currently
-                    convertGrayCheckbox.checked = false;
                     processLocallyCheckbox.checked = true;
                     processRemotelyCheckbox.checked = false;
                     sendLocalToHubCheckbox.checked = false;
                     sendRemoteToHubCheckbox.checked = false;
-
+                    showLocalDetections.checked = false;
+                    showRemoteDetections.checked = false;
                     break;
                 
                 case 'product-detection':
-                    localEndpointInput.value = 'http://image-classifier-service:80/image';
+                    localEndpointInput.value = 'http://object-detection-service:80/image';
                     cloudEndpointInput.value = 'http://192.168.2.21:7071/api/AnalyzeImage/Azure';
-                    resizeWidthInput.value = ''; // Use original image size
-                    resizeHeightInput.value = ''; 
-                    waitTimeInput.value = 3; // The product detection API costs circa £3.893/1K transactions
-                    convertGrayCheckbox.checked = false;
-                    processLocallyCheckbox.checked = false;
+                    resizeWidthInput.value = '1280'; // Use original image size
+                    resizeHeightInput.value = '720'; 
+                    waitTimeInput.value = 30; // The product detection API costs circa £3.893/1K transactions
+                    processLocallyCheckbox.checked = true;
                     processRemotelyCheckbox.checked = true;
                     sendLocalToHubCheckbox.checked = false;
-                    sendRemoteToHubCheckbox.checked = false;
-
+                    sendRemoteToHubCheckbox.checked = true;
+                    showLocalDetections.checked = false;
+                    showRemoteDetections.checked = true;
                     break;
                 
                 case 'edge':
@@ -183,7 +226,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     processRemotelyCheckbox.checked = false;
                     sendLocalToHubCheckbox.checked = false;
                     sendRemoteToHubCheckbox.checked = false;
-
+                    showLocalDetections.checked = true;
+                    showRemoteDetections.checked = false;
                     break;
             }
         });
@@ -199,25 +243,42 @@ document.addEventListener('DOMContentLoaded', function () {
     const updateButton = document.getElementById('update-button');
 
     updateButton.addEventListener('click', function () {
-        // Serialize the form data into a JSON object
-        const formData = {
-            localEndpoint: localEndpointInput.value,
-            cloudEndpoint: cloudEndpointInput.value,
-            resizeWidth: resizeWidthInput.value,
-            resizeHeight: resizeHeightInput.value,
-            waitTime: waitTimeInput.value,
-            convertGray: convertGrayCheckbox.checked,
-            processLocally: processLocallyCheckbox.checked,
-            processRemotely: processRemotelyCheckbox.checked,
-            sendLocalToHub: sendLocalToHubCheckbox.checked,
-            sendRemoteToHub: sendRemoteToHubCheckbox.checked
-        };
-
-        const jsonData = JSON.stringify(formData, null, 2); // Pretty print with 2 spaces
-        ws.send(jsonData)
+        dispatchState()
     });
 
 });
+
+function dispatchState() {
+    // Serialize the form data into a JSON object
+    const formData = {
+        localEndpoint: localEndpointInput.value,
+        cloudEndpoint: cloudEndpointInput.value,
+        resizeWidth: resizeWidthInput.value,
+        resizeHeight: resizeHeightInput.value,
+        waitTime: waitTimeInput.value,
+        processLocally: processLocallyCheckbox.checked,
+        processRemotely: processRemotelyCheckbox.checked,
+        sendLocalToHub: sendLocalToHubCheckbox.checked,
+        sendRemoteToHub: sendRemoteToHubCheckbox.checked,
+        showLocalDetections: showLocalDetections.checked,
+        showRemoteDetections: showRemoteDetections.checked,
+
+        convertToGray: convertToGrayCheckbox.checked,
+        removeBackground: removeBackgroundCheckbox.checked,
+        performRectification: performRectificationCheckbox.checked,
+        rectificationTopLeftX: rectificationTopLeftX.value,
+        rectificationTopLeftY: rectificationTopLeftY.value,
+        rectificationTopRightX: rectificationTopRightX.value,
+        rectificationTopRightY: rectificationTopRightY.value,
+        rectificationBottomLeftX: rectificationBottomLeftX.value,
+        rectificationBottomLeftY: rectificationBottomLeftY.value,
+        rectificationBottomRightX: rectificationBottomRightX.value,
+        rectificationBottomRightY: rectificationBottomRightY.value,
+    };
+
+    const jsonData = JSON.stringify(formData, null, 2); // Pretty print with 2 spaces
+    ws.send(jsonData)
+}
 
 // Page tabs
 function openTab(tabId) {
@@ -237,3 +298,4 @@ function openTab(tabId) {
     document.getElementById(tabId).classList.add('active');
     event.currentTarget.classList.add('active');
 }
+

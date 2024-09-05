@@ -69,6 +69,7 @@ class CameraCapture(object):
             cloudResizeHeight = 0,
             waitTime = 3,
             annotate = False,
+            performRectification = False,
             sendToHubCallback = None):
         self.videoPath = videoPath
         self.isWebcam = True
@@ -120,8 +121,9 @@ class CameraCapture(object):
             self.imageServer = ImageServer(5012, self)
             self.imageServer.start()
         
-        self.display_originalFrame = None
-        self.display_processedFrame = None
+        self.display_originalFrame = None # The original camera frame
+        self.display_displayFrame = None # The image displayed on the Camera tab
+        self.display_processedFrame = None # The image displayed on the Detections tab
 
         self.processor = ImageProcessor(self)
         self.prompt = ""
@@ -133,7 +135,20 @@ class CameraCapture(object):
         self.personDetected = False
 
         self.sendLocalDetectionsToHub = False
-        self.sendRemoteDetectionsToHub = False
+        self.sendRemoteDetectionsToHub = True
+        self.showLocalDetections = True
+        self.showRemoteDetections = False
+
+        self.removeBackground = False
+        self.performRectification = performRectification
+        self.rectificationTopLeftX = 0
+        self.rectificationTopLeftY = 0
+        self.rectificationTopRightX = 1280
+        self.rectificationTopRightY = 0
+        self.rectificationBottomLeftX = 0
+        self.rectificationBottomLeftY = 720
+        self.rectificationBottomRightX = 1280
+        self.rectificationBottomRightY = 720
 
         if self.verbose:
             logger.info("Initialising the camera capture with the following parameters: ")
@@ -155,7 +170,8 @@ class CameraCapture(object):
             logger.info("   - Cloud Resize height: %s", str(self.cloudResizeHeight))
             logger.info("   - Wait time: %s", str(self.waitTime))
             logger.info("   - Annotate: %s", str(self.annotate))
-            logger.info("   - Send processing results to hub: %s", str(self.sendToHubCallback is not None))
+            logger.info("   - Perform rectification: %s", str(self.annotate))
+            logger.info("   - Send processing results to hub: %s", str(self.sendRemoteDetectionsToHub))
 
     def __enter__(self):
         #The VideoStream class always gives us the latest frame from the webcam. It uses another thread to read the frames.
@@ -180,7 +196,7 @@ class CameraCapture(object):
         perfForOneFrameInMs = None
 
         self.original_frame = self.vs.read()
-        self.processed_frame = self.original_frame
+        self.processed_frame = self.original_frame.copy()
 
         # Create an instance of the ImageProcessor class which will run in an async process
         # The process monitors queues to get work and post processed images
@@ -189,6 +205,7 @@ class CameraCapture(object):
         self.processor_process = Thread(target=self.processor.continuous_process)
         self.processor_process.daemon = True  # This will ensure that the process is killed when main.py exits
 
+        logger.info("Camera Capture Loop : Start")
         try:
             self.processor_process.start()
             while True:
@@ -196,9 +213,22 @@ class CameraCapture(object):
                 startCapture = time.time()
 
                 frameCounter +=1
-                self.original_frame = self.vs.read()
+                # Continually attempt to dequeue a fram until success
+                #  Ignore errors such as timeouts etc.
+                get_frame = True
+                while (get_frame == True):
+                    try:
+                        self.original_frame = self.vs.read()
+                        get_frame = False
+                    except Exception as e:
+                        logger.info("Ignored exception : %s",e)
+                        pass
+                if (self.original_frame is not None):
+                    self.processed_frame = self.original_frame.copy()
+                else:
+                    self.original_frame = self.processed_frame.copy()
                 startPreProcessing = time.time()
-                logger.debug("Frame number: %d", frameCounter)
+                logger.info("Frame number: %d", frameCounter)
                 logger.debug("Time to capture (+ straighten up) a frame: %s", Helper.display_time_difference_in_ms(time.time(), startCapture))
 
                 # If the processing engine is not currently processing a frame
@@ -233,8 +263,17 @@ class CameraCapture(object):
                     startDisplaying = time.time()
                     # Prepare a jpg of the current frame for display on the web-server
                     try:
+                        # Draw rectification bounds onto camera display frame
+                        points = np.array([[self.rectificationTopLeftX, self.rectificationTopLeftY], [self.rectificationTopRightX, self.rectificationTopRightY], 
+                                           [self.rectificationBottomRightX, self.rectificationBottomRightY], [self.rectificationBottomLeftX, self.rectificationBottomLeftY]], 
+                                           np.int32)
+                        # Reshape points to the correct shape for polylines
+                        points = points.reshape((-1, 1, 2))
+                        # Draw the parallelogram on the image
+                        cv2.polylines(self.display_frame, [points], isClosed=True, color=(0, 255, 0), thickness=3)
+
                         # Setting this variable will make it available to the ImageServer web-server
-                        self.display_originalFrame = cv2.imencode('.jpg', self.original_frame)[1].tobytes()
+                        self.display_originalFrame = cv2.imencode('.jpg', self.display_frame)[1].tobytes()
                     except Exception as e:
                         pass
                     # Prepare a jpg of the processed frame for display on the web-server

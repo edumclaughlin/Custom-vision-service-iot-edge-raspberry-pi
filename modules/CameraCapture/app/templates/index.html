@@ -31,11 +31,11 @@
                 <form id="detections-form" class="detections-form">
                     <div class="multi-line-field">
                         <h3 class="multiline-label">Local Detections</h2>
-                        <textarea id="local-detections" rows="2"></textarea>
+                        <textarea id="local-detections" rows="4"></textarea>
                     </div>                
                     <div class="multi-line-field">
                         <h3 class="multiline-label">Remote Detections</h2>
-                        <textarea id="remote-detections" rows="2"></textarea>
+                        <textarea id="remote-detections" rows="4"></textarea>
                     </form>
                 </div>                
             </div>                
@@ -46,6 +46,53 @@
             <div class="image-container">
                 <img id="currentImage" alt="Current Image">
             </div>
+
+            <!-- Rectification Parameters -->
+            <div class="parameters">
+                <form id="rectification-form" class="parameter-form">
+                        <div class="form-group">
+                            <label for="rectification-topleftx">TopLeft-x:</label>
+                            <input type="number" id="rectification-topleftx" name="rectification-topleftx" min="0">
+                            <label for="rectification-toplefty">TopLeft-y:</label>
+                            <input type="number" id="rectification-toplefty" name="rectification-toplefty" min="0">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="rectification-toprightx">TopRight-x:</label>
+                            <input type="number" id="rectification-toprightx" name="rectification-toprightx" min="0">
+                            <label for="rectification-toprighty">TopRight-y:</label>
+                            <input type="number" id="rectification-toprighty" name="rectification-toprighty" min="0">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="rectification-bottomleftx">BottomLeft-x:</label>
+                            <input type="number" id="rectification-bottomleftx" name="rectification-bottomleftx" min="0">
+                            <label for="rectification-bottomlefty">BottomLeft-y:</label>
+                            <input type="number" id="rectification-bottomlefty" name="rectification-bottomlefty" min="0">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="rectification-bottomrightx">BottomRight-x:</label>
+                            <input type="number" id="rectification-bottomrightx" name="rectification-bottomrightx" min="0">
+                            <label for="rectification-bottomrighty">BottomRight-y:</label>
+                            <input type="number" id="rectification-bottomrighty" name="rectification-bottomrighty" min="0">
+                        </div>
+    
+                </form>
+            </div>
+            <div class="toggles">
+                <form id="camera-toggles-form" class="toggles-form">
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="convert-gray" name="convert-gray">
+                        <label for="convert-gray">Convert to Gray</label>
+                        <input type="checkbox" id="remove-background" name="remove-background">
+                        <label for="remove-background">Remove background</label>
+                        <input type="checkbox" id="perform-rectification" name="perform-rectification">
+                        <label for="perform-rectification">Perform rectification</label>
+                    </div>
+                </form>
+            </div>
+
         </div>
         
         <!-- Parameters Tab Content -->
@@ -74,8 +121,12 @@
                     <label for="convert-gray">Convert to Gray</label>
                     <input type="checkbox" id="process-locally" name="process-locally">
                     <label for="process-locally">Process Locally</label>
+                    <input type="checkbox" id="show-local-detections" name="show-local-detections">
+                    <label for="show-local-detections">Show Local Detections</label>
                     <input type="checkbox" id="process-remotely" name="process-remotely">
                     <label for="process-remotely">Process Remotely</label>
+                    <input type="checkbox" id="show-remote-detections" name="show-remote-detections">
+                    <label for="show-remote-detections">Show Remote Detections</label>
                     <input type="checkbox" id="send-local-to-hub" name="send-local-to-hub">
                     <label for="send-local-to-hub">Send local detections to hub</label>
                     <input type="checkbox" id="send-remote-to-hub" name="send-remote-to-hub">

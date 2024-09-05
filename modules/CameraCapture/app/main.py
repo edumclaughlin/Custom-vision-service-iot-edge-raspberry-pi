@@ -34,6 +34,7 @@ SEND_CALLBACKS = 0
 
 
 def send_to_Hub_callback(strMessage):
+    logger.info("SEND MESSAGE TO IoT Hub: output1")
     message = Message(bytearray(strMessage, 'utf8'))
     hubManager.send_message_to_output(message, "output1")
 
@@ -83,7 +84,8 @@ def main(
         cloudResizeWidth=0,
         cloudResizeHeight=0,
         waitTime=3,
-        annotate=False
+        annotate=False,
+        performRectification=False
 ):
     '''
     Capture a camera feed, send it to processing and forward outputs to EdgeHub
@@ -107,6 +109,7 @@ def main(
     :param int cloudResizeHeight: resize frame width before sending to cloud service for processing. Does not resize by default (0). Optional.
     :param int waitTime: wait time in seconds between processing frames - Used to manage cloud API costs. Optional.
     :param bool annotate: when showing the video in a window, it will annotate the frames with rectangles given by the image processing service. False by default. Optional. Rectangles should be passed in a json blob with a key containing the string rectangle, and a top left corner + bottom right corner or top left corner with width and height.
+    :param bool performRectification: Process the video frame to focus on the bounding box of the shelf and remove perspective distortion
     '''
     try:
         logger.debug("Python %s", sys.version)
@@ -122,7 +125,7 @@ def main(
                            cloudProcess, cloudProcessingEndpoint, cloudProcessingParams,
                            showVideo, verbose, loopVideo, convertToGray, 
                            captureWidth, captureHeight, resizeWidth, resizeHeight, cloudResizeWidth, cloudResizeHeight,
-                           waitTime, annotate, send_to_Hub_callback) as cameraCapture:
+                           waitTime, annotate, performRectification, send_to_Hub_callback) as cameraCapture:
             cameraCapture.start()
     except KeyboardInterrupt:
         logger.info("Camera capture module stopped")
@@ -150,10 +153,11 @@ if __name__ == '__main__':
         CLOUD_RESIZE_HEIGHT = int(os.getenv('CLOUD_RESIZE_HEIGHT', 0))
         WAIT_TIME = int(os.getenv('WAIT_TIME', 0))
         ANNOTATE = Helper.convert_string_to_bool(os.getenv('ANNOTATE', 'False'))
+        PERFORM_RECTIFICATION = Helper.convert_string_to_bool(os.getenv('PERFORM_RECTIFICATION', 'False'))
 
     except ValueError as error:
         print(error)
         sys.exit(1)
 
     main(VIDEO_PATH, LOCAL_PROCESS, IMAGE_PROCESSING_ENDPOINT, IMAGE_PROCESSING_PARAMS, CLOUD_PROCESS, CLOUD_PROCESSING_ENDPOINT, CLOUD_PROCESSING_PARAMS, SHOW_VIDEO,
-         VERBOSE, LOOP_VIDEO, CONVERT_TO_GRAY, CAPTURE_WIDTH, CAPTURE_HEIGHT, RESIZE_WIDTH, RESIZE_HEIGHT, CLOUD_RESIZE_WIDTH, CLOUD_RESIZE_HEIGHT, WAIT_TIME, ANNOTATE)
+         VERBOSE, LOOP_VIDEO, CONVERT_TO_GRAY, CAPTURE_WIDTH, CAPTURE_HEIGHT, RESIZE_WIDTH, RESIZE_HEIGHT, CLOUD_RESIZE_WIDTH, CLOUD_RESIZE_HEIGHT, WAIT_TIME, ANNOTATE, PERFORM_RECTIFICATION)
