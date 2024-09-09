@@ -1,5 +1,4 @@
-var currentimg = document.getElementById("currentImage");
-// var binaryimg = document.getElementById("binaryImage");
+var displayimg = document.getElementById("displayImage");
 var processedimg = document.getElementById("processedImage");
 var ws = new WebSocket("ws://" + location.host + "/stream");
 
@@ -40,29 +39,29 @@ ws.onmessage = function(event) {
         : 'No prompt response'; // Provide a default value if undefined
 };
 
-//Establish WebSocket connection for the current images
-var currentImageSocket = new WebSocket("ws://" + location.host + "/currentimage");
+//Establish WebSocket connection for the display images (Camera view)
+var displayImageSocket = new WebSocket("ws://" + location.host + "/displayimage");
 
-// Handle incoming "current" images
-currentImageSocket.onmessage = function(event) {
+// Handle incoming display images (For camera view)
+displayImageSocket.onmessage = function(event) {
   if (event.data instanceof Blob) {
       // // Get the existing image element by its ID
-      const currentimg = document.getElementById('currentImage');
+      const displayimg = document.getElementById('displayImage');
       
       // Create an object URL from the Blob and set it as the src of the image
-      currentimg.src = URL.createObjectURL(event.data);
+      displayimg.src = URL.createObjectURL(event.data);
 
       // Optionally, manage memory by revoking the object URL once the image is loaded
-      currentimg.onload = () => {
-          URL.revokeObjectURL(currentimg.src); // Clean up the object URL to release memory
-          currentImageSocket.send("next");
+      displayimg.onload = () => {
+          URL.revokeObjectURL(displayimg.src); // Clean up the object URL to release memory
+          displayImageSocket.send("next");
       };
   }
 }
 
-currentImageSocket.onopen = function() {
-  console.log("connection was established for current images");
-  currentImageSocket.send("next");
+displayImageSocket.onopen = function() {
+  console.log("connection was established for camera images");
+  displayImageSocket.send("next");
 };
 
 // // Once an image has been refreshed this code will fire and request another 
@@ -71,9 +70,10 @@ currentImageSocket.onopen = function() {
 //   processedImageSocket.send("next");
 // }
 
-// Establish WebSocket connection for processed images
+// Establish WebSocket connection for processed images (Detections View)
 var processedImageSocket = new WebSocket("ws://" + location.host + "/processedimage");
 
+// Handle incoming processed images (For detections view)
 processedImageSocket.onmessage = function(event) {
   if (event.data instanceof Blob) {
       // Get the existing image element by its ID
@@ -133,7 +133,13 @@ document.addEventListener('DOMContentLoaded', function () {
         rectificationTopRightX, rectificationTopRightY,
         rectificationBottomLeftX, rectificationBottomLeftY,
         rectificationBottomRightX, rectificationBottomRightY,
-        convertToGrayCheckbox, performRectificationCheckbox, removeBackgroundCheckbox
+        convertToGrayCheckbox, performRectificationCheckbox, removeBackgroundCheckbox,
+        //presetsDropdown, 
+        localEndpointInput, cloudEndpointInput,
+        resizeWidthInput, resizeHeightInput, 
+        waitTimeInput, processLocallyCheckbox, processRemotelyCheckbox, 
+        sendLocalToHubCheckbox, sendRemoteToHubCheckbox, 
+        showLocalDetections, showRemoteDetections
     ];
 
     // Add event listeners to each input element
@@ -141,110 +147,90 @@ document.addEventListener('DOMContentLoaded', function () {
         input.addEventListener('change', dispatchState);  // use 'input' or 'change' if you prefer
     });
 
-    // Check if any of the elements are not found
-    // if (!presetsDropdown) console.error('Element with ID "presets" not found.');
-    // if (!localEndpointInput) console.error('Element with ID "local-endpoint" not found.');
-    // if (!cloudEndpointInput) console.error('Element with ID "cloud-endpoint" not found.');
-    // if (!resizeWidthInput) console.error('Element with ID "resize-width" not found.');
-    // if (!waitTimeInput) console.error('Element with ID "wait-time" not found.');
-    // if (!resizeHeightInput) console.error('Element with ID "resize-height" not found.');
-    // if (!convertGrayCheckbox) console.error('Element with ID "convert-gray" not found.');
-    // if (!processLocallyCheckbox) console.error('Element with ID "process-locally" not found.');
-    // if (!processRemotelyCheckbox) console.error('Element with ID "process-remotely" not found.');
-    // if (!sendLocalToHubCheckbox) console.error('Element with ID "send-local-to-hub" not found.');
-    // if (!sendRemoteToHubCheckbox) console.error('Element with ID "send-remote-to-hub" not found.');
-    // if (!showLocalDetections) console.error('Element with ID "show-local-detections" not found.');
-    // if (!showRemoteDetections) console.error('Element with ID "show-remote-detections" not found.');
-
     convertToGrayCheckbox.checked = false;
     performRectificationCheckbox.checked = false;
     removeBackgroundCheckbox.checked = false;
-    rectificationTopLeftX.value = 670; 
+    rectificationTopLeftX.value = 790; 
     rectificationTopLeftY.value = 0; 
-    rectificationTopRightX.value = 1260; 
+    rectificationTopRightX.value = 1240; 
     rectificationTopRightY.value = 0; 
-    rectificationBottomLeftX.value = 710; 
+    rectificationBottomLeftX.value = 850; 
     rectificationBottomLeftY.value = 720; 
     rectificationBottomRightX.value = 1280; 
-    rectificationBottomRightY.value = 680; 
+    rectificationBottomRightY.value = 620; 
 
-    if (presetsDropdown) {
-        presetsDropdown.addEventListener('change', function () {
-            const selectedPreset = presetsDropdown.value;
 
-            // Set values based on the selected preset
-            switch (selectedPreset) {
-                case 'llama-llava':
-                    localEndpointInput.value = 'http://object-detection-service:80/image';
-                    cloudEndpointInput.value = 'http://192.168.2.21:7071/api/AnalyzeImage/llama';
-                    resizeWidthInput.value = 672; // Must match model input-layer
-                    resizeHeightInput.value = 672; 
-                    waitTimeInput.value = 5; // No external hosts for such models
-                    processLocallyCheckbox.checked = true;
-                    processRemotelyCheckbox.checked = true;
-                    sendLocalToHubCheckbox.checked = false;
-                    sendRemoteToHubCheckbox.checked = false;
-                    showLocalDetections.checked = false;
-                    showRemoteDetections.checked = false;
-                    break;
-                
-                case 'gpt-4o':
-                    localEndpointInput.value = 'http://object-detection-service:80/image';
-                    cloudEndpointInput.value = 'http://192.168.2.21:7071/api/AnalyzeImage/OpenAI';
-                    resizeWidthInput.value = 672; 
-                    resizeHeightInput.value = 672; 
-                    waitTimeInput.value = 3; // Costs are high for these models currently
-                    processLocallyCheckbox.checked = true;
-                    processRemotelyCheckbox.checked = false;
-                    sendLocalToHubCheckbox.checked = false;
-                    sendRemoteToHubCheckbox.checked = false;
-                    showLocalDetections.checked = false;
-                    showRemoteDetections.checked = false;
-                    break;
-                
-                case 'product-detection':
-                    localEndpointInput.value = 'http://object-detection-service:80/image';
-                    cloudEndpointInput.value = 'http://192.168.2.21:7071/api/AnalyzeImage/Azure';
-                    resizeWidthInput.value = '1280'; // Use original image size
-                    resizeHeightInput.value = '720'; 
-                    waitTimeInput.value = 30; // The product detection API costs circa £3.893/1K transactions
-                    processLocallyCheckbox.checked = true;
-                    processRemotelyCheckbox.checked = true;
-                    sendLocalToHubCheckbox.checked = false;
-                    sendRemoteToHubCheckbox.checked = true;
-                    showLocalDetections.checked = false;
-                    showRemoteDetections.checked = true;
-                    break;
-                
-                case 'edge':
-                    localEndpointInput.value = 'http://object-detection-service:80/image';
-                    cloudEndpointInput.value = '';
-                    resizeWidthInput.value = '1280'; // Use original image size
-                    resizeHeightInput.value = '720'; 
-                    waitTimeInput.value = 0.1; // No costs
-                    processLocallyCheckbox.checked = true;
-                    processRemotelyCheckbox.checked = false;
-                    sendLocalToHubCheckbox.checked = false;
-                    sendRemoteToHubCheckbox.checked = false;
-                    showLocalDetections.checked = true;
-                    showRemoteDetections.checked = false;
-                    break;
-            }
-        });
-    }
+    presetsDropdown.addEventListener('change', function () {
+        const selectedPreset = presetsDropdown.value;
+
+        // Set values based on the selected preset
+        switch (selectedPreset) {
+            case 'llama-llava':
+                localEndpointInput.value = 'http://object-detection-service:80/image';
+                cloudEndpointInput.value = 'http://192.168.2.21:7071/api/AnalyzeImage/llama';
+                resizeWidthInput.value = 672; // Must match model input-layer
+                resizeHeightInput.value = 672; 
+                waitTimeInput.value = 5; // No external hosts for such models
+                processLocallyCheckbox.checked = true;
+                processRemotelyCheckbox.checked = true;
+                sendLocalToHubCheckbox.checked = false;
+                sendRemoteToHubCheckbox.checked = false;
+                showLocalDetections.checked = false;
+                showRemoteDetections.checked = false;
+                break;
+            
+            case 'gpt-4o':
+                localEndpointInput.value = 'http://object-detection-service:80/image';
+                cloudEndpointInput.value = 'http://192.168.2.21:7071/api/AnalyzeImage/OpenAI';
+                resizeWidthInput.value = 672; 
+                resizeHeightInput.value = 672; 
+                waitTimeInput.value = 3; // Costs are high for these models currently
+                processLocallyCheckbox.checked = true;
+                processRemotelyCheckbox.checked = false;
+                sendLocalToHubCheckbox.checked = false;
+                sendRemoteToHubCheckbox.checked = false;
+                showLocalDetections.checked = false;
+                showRemoteDetections.checked = false;
+                break;
+            
+            case 'product-detection':
+                localEndpointInput.value = 'http://object-detection-service:80/image';
+                cloudEndpointInput.value = 'http://192.168.2.21:7071/api/AnalyzeImage/Azure';
+                resizeWidthInput.value = 0; // Use original image size
+                resizeHeightInput.value = 0; 
+                waitTimeInput.value = 30; // The product detection API costs circa £3.893/1K transactions
+                processLocallyCheckbox.checked = true;
+                processRemotelyCheckbox.checked = true;
+                sendLocalToHubCheckbox.checked = false;
+                sendRemoteToHubCheckbox.checked = true;
+                showLocalDetections.checked = false;
+                showRemoteDetections.checked = true;
+                break;
+            
+            case 'edge':
+                localEndpointInput.value = 'http://object-detection-service:80/image';
+                cloudEndpointInput.value = '';
+                resizeWidthInput.value = 0; // Use original image size
+                resizeHeightInput.value = 0; 
+                waitTimeInput.value = 0.1; // No costs
+                processLocallyCheckbox.checked = true;
+                processRemotelyCheckbox.checked = false;
+                sendLocalToHubCheckbox.checked = false;
+                sendRemoteToHubCheckbox.checked = false;
+                showLocalDetections.checked = true;
+                showRemoteDetections.checked = false;
+                break;
+        }
+
+        dispatchState;
+    });
+
 
     // Set the default value to edge
     presetsDropdown.value = 'edge';  // Set this to the value you want to select
     // Trigger the 'change' event to load form data from this selection
     const event = new Event('change');
     presetsDropdown.dispatchEvent(event);
-
-    // Add event listeners to play/pause buttons
-    const updateButton = document.getElementById('update-button');
-
-    updateButton.addEventListener('click', function () {
-        dispatchState()
-    });
 
 });
 
@@ -299,3 +285,39 @@ function openTab(tabId) {
     event.currentTarget.classList.add('active');
 }
 
+// Determine pixel co-ordinates within image
+const coordsDisplay = document.getElementById('coords');
+
+var currentCorner = 1
+// Attach a click event listener to the image
+displayimg.addEventListener('click', function(event) {
+    // Get the position of the image relative to the viewport
+    const rect = displayimg.getBoundingClientRect();
+    
+    // Calculate the x, y coordinates relative to the image itself
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // Display the coordinates    
+    switch (currentCorner) {
+        case 1:
+            rectificationTopLeftX.value = Math.round(x);
+            rectificationTopLeftY.value = Math.round(y);
+        case 2:
+            rectificationTopRightX.value = Math.round(x);
+            rectificationTopRightY.value = Math.round(y);
+        case 3:
+            rectificationBottomRightX.value = Math.round(x);
+            rectificationBottomRightY.value = Math.round(y);
+        case 4:
+            rectificationBottomLeftX.value = Math.round(x);
+            rectificationBottomLeftY.value = Math.round(y);
+    }
+    currentCorner = currentCorner >= 4 ? 1 : currentCorner + 1;
+    console.log(`X: ${Math.round(x)}, Y: ${Math.round(y)}`)
+
+    // When a region has been drawn notify the server
+    if (currentCorner == 4) {
+        dispatchState;
+    }
+});

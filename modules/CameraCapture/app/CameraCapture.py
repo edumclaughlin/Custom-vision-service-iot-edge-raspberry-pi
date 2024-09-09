@@ -100,30 +100,22 @@ class CameraCapture(object):
         self.cloudResizeWidth = cloudResizeWidth
         self.cloudResizeHeight = cloudResizeHeight
         self.annotate = (self.imageProcessingEndpoint != "") and self.showVideo & annotate
-        self.nbOfPreprocessingSteps = 0
         self.autoRotate = True
         self.sendToHubCallback = sendToHubCallback
         self.vs = None
         self.waitTime = waitTime # Processing delay between frames in seconds
 
-        if self.convertToGray:
-            self.nbOfPreprocessingSteps +=1
-        if self.resizeWidth != 0 or self.resizeHeight != 0:
-            self.nbOfPreprocessingSteps +=1
-
-        # Instance variable used to hold the current web-cam frame and accessed by the ImageServer     
-        self.displayFrame = None
-        # Instance variable used to hold the current processed frame and accessed by the ImageServer     
-        self.processedFrame = None
-
         # Create an ImageServer (When configured) web-socket server on port 5012 and send it a start message
         if self.showVideo:
             self.imageServer = ImageServer(5012, self)
             self.imageServer.start()
-        
-        self.display_originalFrame = None # The original camera frame
-        self.display_displayFrame = None # The image displayed on the Camera tab
-        self.display_processedFrame = None # The image displayed on the Detections tab
+
+
+        self.displayFrame = None # CV3 image of camera view
+        self.processedFrame = None # CV2 image od detections view
+
+        self.web_displayFrame = None # The image displayed on the Camera tab (jpg)
+        self.web_processedFrame = None # The image displayed on the Detections tab (jpg)
 
         self.processor = ImageProcessor(self)
         self.prompt = ""
@@ -181,12 +173,12 @@ class CameraCapture(object):
         self.capture = cv2.VideoCapture(int(self.videoPath))
         return self
 
-    def get_original_frame(self):
-        return self.display_originalFrame
+    def get_display_frame(self):
+        return self.web_displayFrame
 
     # Getter for self.processedFrame instance variable
     def get_processed_frame(self):
-        return self.display_processedFrame
+        return self.web_processedFrame
     
     # Continually polls the camera and prepares frames for the ImageServer to consume
     # The execution time for each loop iteration is injected between video frames 
@@ -195,8 +187,8 @@ class CameraCapture(object):
         frameCounter = 0
         perfForOneFrameInMs = None
 
-        self.original_frame = self.vs.read()
-        self.processed_frame = self.original_frame.copy()
+        self.displayFrame = self.vs.read()
+        self.processedFrame = self.displayFrame.copy() # Use the .copy method to do a deep copy of the object
 
         # Create an instance of the ImageProcessor class which will run in an async process
         # The process monitors queues to get work and post processed images
@@ -216,17 +208,17 @@ class CameraCapture(object):
                 # Continually attempt to dequeue a fram until success
                 #  Ignore errors such as timeouts etc.
                 get_frame = True
-                while (get_frame == True):
-                    try:
-                        self.original_frame = self.vs.read()
-                        get_frame = False
-                    except Exception as e:
-                        logger.info("Ignored exception : %s",e)
-                        pass
-                if (self.original_frame is not None):
-                    self.processed_frame = self.original_frame.copy()
-                else:
-                    self.original_frame = self.processed_frame.copy()
+                # while (get_frame == True):
+                #     try:
+                self.displayFrame = self.vs.read()
+                        # get_frame = False
+                #     except Exception as e:
+                #         logger.info("Ignored exception : %s",e)
+                #         pass
+                # if (self.displayFrame is not None):
+                #     self.processedFrame = self.displayFrame.copy()
+                # else:
+                #     self.displayFrame = self.processedFrame.copy()
                 startPreProcessing = time.time()
                 logger.info("Frame number: %d", frameCounter)
                 logger.debug("Time to capture (+ straighten up) a frame: %s", Helper.display_time_difference_in_ms(time.time(), startCapture))
@@ -235,11 +227,11 @@ class CameraCapture(object):
                 # Then place the current frame into the input queue for image processing
                 if self.processor.work_queue.empty():
                     logger.debug("Send image frame to process")
-                    self.processor.work_queue.put(self.original_frame)
+                    self.processor.work_queue.put(self.displayFrame)
 
                 if not self.processor.output_queue.empty():
                     try:
-                        self.processed_frame = self.processor.output_queue.get(block=False)
+                        self.processedFrame = self.processor.output_queue.get(block=False)
                         logger.debug(f"Output queue now has %d elements.", self.processor.output_queue.qsize())
                         # Send any updated states to connected web clients
                         msg = {
@@ -247,14 +239,14 @@ class CameraCapture(object):
                             "remote_detections": self.remoteDetections,
                             "prompt_response": self.promptResponse
                         }
-                        json_string = json.dumps(msg, indent=4)  # `indent` is optional
+                        json_string = json.dumps(msg, indent=3)  # `indent` is optional
                         self.imageServer.send_to_clients(json_string)
                     except queue.Empty:
                         pass
 
                 # Get a processed image from the result queue if available
                 try:
-                    self.processed_frame, _ = self.processor.get_result()
+                    self.processedFrame, _ = self.processor.get_result()
                 except:
                     pass
 
@@ -270,16 +262,16 @@ class CameraCapture(object):
                         # Reshape points to the correct shape for polylines
                         points = points.reshape((-1, 1, 2))
                         # Draw the parallelogram on the image
-                        cv2.polylines(self.display_frame, [points], isClosed=True, color=(0, 255, 0), thickness=3)
+                        cv2.polylines(self.displayFrame, [points], isClosed=True, color=(0, 255, 0), thickness=3)
 
                         # Setting this variable will make it available to the ImageServer web-server
-                        self.display_originalFrame = cv2.imencode('.jpg', self.display_frame)[1].tobytes()
+                        self.web_displayFrame = cv2.imencode('.jpg', self.displayFrame)[1].tobytes()
                     except Exception as e:
                         pass
                     # Prepare a jpg of the processed frame for display on the web-server
                     try:
                         # Setting this variable will make it available to the ImageServer web-server
-                        self.display_processedFrame = cv2.imencode('.jpg', self.processed_frame)[1].tobytes()
+                        self.web_processedFrame = cv2.imencode('.jpg', self.processedFrame)[1].tobytes()
                     except Exception as e:
                         pass
 

@@ -66,7 +66,7 @@ class Handler_messages(tornado.websocket.WebSocketHandler):
             client.write_message(message)
             logger.debug("Message sent to client")
 
-class Handler_currentimage(tornado.websocket.WebSocketHandler):
+class Handler_displayimage(tornado.websocket.WebSocketHandler):
     def initialize(self, parent):
         self.clients = []
         self.parent = parent
@@ -76,20 +76,20 @@ class Handler_currentimage(tornado.websocket.WebSocketHandler):
 
     def open(self):
         self.clients.append(self)
-        logger.debug("Handler_currentimage::opened")
+        logger.debug("Handler_displayimage::opened")
 
     def on_message(self, msg):
-        # print(f"Handler_currentimage::message::{msg}")
+        # print(f"Handler_displayimage::message::{msg}")
         if msg == 'next':
-            # print("Handler_currentimage::image requested")
-            dframe = self.parent.display_originalFrame
+            # print("Handler_displayimage::image requested")
+            dframe = self.parent.get_display_frame()
             if dframe != None:
-                # print("Handler_currentimage::image available")
+                # print("Handler_displayimage::image available")
                 self.write_message(dframe, binary=True)
 
     def on_close(self):
         self.clients.remove(self)
-        logger.debug("Handler_currentimage::closed")
+        logger.debug("Handler_displayimage::closed")
 
 class Handler_processedimage(tornado.websocket.WebSocketHandler):
     def initialize(self, parent):
@@ -107,7 +107,7 @@ class Handler_processedimage(tornado.websocket.WebSocketHandler):
         # print(f"Handler_processedimage::message::{msg}")
         if msg == 'next':
             # print("Handler_processedimage::image requested")
-            pframe = self.parent.display_processedFrame
+            pframe = self.parent.get_processed_frame()
             if pframe != None:
                 # print("Handler_processedimage::image available")
                 self.write_message(pframe, binary=True)
@@ -132,7 +132,7 @@ class ImageServer(threading.Thread):
                 os.path.realpath(__file__)), 'templates')
             app = tornado.web.Application([
                 (r"/stream", Handler_messages, {'parent': self.parent}),
-                (r"/currentimage", Handler_currentimage, {'parent': self.parent}),
+                (r"/displayimage", Handler_displayimage, {'parent': self.parent}),
                 (r"/processedimage", Handler_processedimage, {'parent': self.parent}),
                 (r"/(.*)", tornado.web.StaticFileHandler,
                  {'path': indexPath, 'default_filename': 'index.html'})

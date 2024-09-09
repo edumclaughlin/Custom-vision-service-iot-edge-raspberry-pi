@@ -214,18 +214,19 @@ class ImageProcessor:
 
             # Perform image rectification
             if (self.parent.performRectification == True):
+                logger.info(f"Perform rectification")
                 processed_image = Helper.unwarp_perspective(processed_image,
                                         [(self.parent.rectificationTopLeftX, self.parent.rectificationTopLeftY),
                                             (self.parent.rectificationTopRightX, self.parent.rectificationTopRightY),
                                             (self.parent.rectificationBottomLeftX, self.parent.rectificationBottomLeftY),
                                             (self.parent.rectificationBottomRightX, self.parent.rectificationBottomRightY)],
-                                        [(0,0),(self.parent.rectificationBottomLeftX,0),(0,self.parent.rectificationBottomRightY),(self.parent.rectificationBottomLeftX,self.parent.rectificationBottomRightY)]
+                                        [(0,0),(self.parent.rectificationBottomRightX,0),(0,self.parent.rectificationBottomRightY),(self.parent.rectificationBottomRightX,self.parent.rectificationBottomRightY)]
                 )
-
-            # TODO: Introduce additional input checking for values sent blank from Web UI
-            if (self.parent.resizeWidth != 0 or self.parent.resizeHeight != 0):
-                logger.info(f"Resize image Height:%s Width:%s", self.parent.resizeWidth, self.parent.resizeHeight)
-                processed_image = cv2.resize(processed_image, (int(self.parent.resizeWidth), int(self.parent.resizeHeight)))
+                
+            # Perform resize
+            # if (self.parent.resizeWidth != 0 or self.parent.resizeHeight != 0):
+            #     logger.info(f"Resize image Height:%s Width:%s", self.parent.resizeWidth, self.parent.resizeHeight)
+            #     processed_image = cv2.resize(processed_image, (int(self.parent.resizeWidth), int(self.parent.resizeHeight)))
 
             # ----------------------------------------------------
             # Apply AI analysis locally

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # This class reads all the video frames in a separate thread and always has the keeps only the latest frame in its queue to be grabbed by another thread
 class VideoStream(object):
-    def __init__(self, path, queueSize=10, CaptureWidth=1080, CaptureHeight=1920):
+    def __init__(self, path, queueSize=2, CaptureWidth=1080, CaptureHeight=1920):
         self.stream = cv2.VideoCapture(path)
         self.stopped = False
         self.Q = Queue(maxsize=queueSize)

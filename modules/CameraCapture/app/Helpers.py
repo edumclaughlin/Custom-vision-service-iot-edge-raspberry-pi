@@ -1,7 +1,7 @@
 import cv2
 import math
 import numpy as np
-#import matplotlib.pyplot as plt
+
 class Helper:
 
     @classmethod
@@ -30,5 +30,15 @@ class Helper:
         # use cv2.warpPerspective() to warp your image to a top-down view
         warped = cv2.warpPerspective(img, M, (w, h), flags=cv2.INTER_LINEAR)
 
+        # Crop the image to the bounds of the rectification region
+        # Get the min and max x, y coordinates from the destination points
+        min_x = int(min(dst[:, 0]))
+        max_x = int(max(dst[:, 0]))
+        min_y = int(min(dst[:, 1]))
+        max_y = int(max(dst[:, 1]))
+
+        # Crop the warped image using the bounding box
+        cropped_warped = warped[min_y:max_y, min_x:max_x]
+        
         return warped
 
